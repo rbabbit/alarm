@@ -64,6 +64,12 @@ function syncNativeState() {
   bridge.syncState(JSON.stringify({ alarms, history }));
 }
 
+function syncNativeQuickTimers() {
+  const bridge = nativeBridge();
+  if (!bridge || typeof bridge.syncQuickTimers !== "function") return;
+  bridge.syncQuickTimers(JSON.stringify(quickTimers.map(({ audioStarted, ...timer }) => timer)));
+}
+
 window.applyNativeAlarmState = (stateJson) => {
   try {
     const state = JSON.parse(stateJson || "{}");
@@ -74,6 +80,10 @@ window.applyNativeAlarmState = (stateJson) => {
     }
     history = mergeHistoryLists(history, state.history);
     saveJson(HISTORY_KEY, history);
+    if (Array.isArray(state.quickTimers) && (state.quickTimers.length > 0 || quickTimers.length === 0)) {
+      quickTimers = state.quickTimers.map((timer) => ({ ...timer, audioStarted: false }));
+      saveJson(QUICK_TIMERS_KEY, state.quickTimers);
+    }
     render();
   } catch {
     // Native state is optional in browser mode; keep the last valid local state.
@@ -92,7 +102,12 @@ function hydrateNativeState() {
     }
     history = mergeHistoryLists(history, state.history);
     saveJson(HISTORY_KEY, history);
+    if (Array.isArray(state.quickTimers) && (state.quickTimers.length > 0 || quickTimers.length === 0)) {
+      quickTimers = state.quickTimers.map((timer) => ({ ...timer, audioStarted: false }));
+      saveJson(QUICK_TIMERS_KEY, state.quickTimers);
+    }
     syncNativeState();
+    syncNativeQuickTimers();
   } catch {
     // Browser mode remains usable if the Android bridge is unavailable.
   }
@@ -100,6 +115,7 @@ function hydrateNativeState() {
 
 function saveQuickTimers() {
   saveJson(QUICK_TIMERS_KEY, quickTimers.map(({ audioStarted, ...timer }) => timer));
+  syncNativeQuickTimers();
 }
 
 function escapeHtml(value) {
@@ -446,6 +462,10 @@ async function ringQuickTimer(timer) {
 }
 
 function quickTimerTick() {
+  if (isNativeAndroid()) {
+    if (currentView === "quick") renderQuick();
+    return;
+  }
   const now = Date.now();
   let changed = false;
   for (const timer of quickTimers) {
@@ -725,8 +745,7 @@ document.querySelector("#quick-minutes").addEventListener("change", (event) => {
 });
 document.querySelector("#start-quick-timer").addEventListener("click", () => {
   const minutes = selectedQuickMinutes();
-  const seconds = Number(document.querySelector("#quick-seconds").value);
-  startQuickTimer(Math.round(minutes * 60 + seconds), document.querySelector("#quick-label").value);
+  startQuickTimer(Math.round(minutes * 60), document.querySelector("#quick-label").value);
 });
 
 document.querySelector("#weather-load").addEventListener("click", () => { void loadWeather(); });

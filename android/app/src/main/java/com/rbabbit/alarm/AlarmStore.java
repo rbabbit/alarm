@@ -31,9 +31,10 @@ public final class AlarmStore {
             return new JSONObject()
                     .put("alarms", alarms)
                     .put("history", history)
+                    .put("quickTimers", QuickTimerStore.getTimers(context))
                     .toString();
         } catch (JSONException error) {
-            return "{\"alarms\":[],\"history\":[]}";
+            return "{\"alarms\":[],\"history\":[],\"quickTimers\":[]}";
         }
     }
 

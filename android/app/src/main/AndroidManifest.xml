@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:allowBackup="true"
@@ -35,6 +36,8 @@
             android:screenOrientation="portrait" />
         <receiver android:name=".AlarmReceiver" android:exported="false" />
         <receiver android:name=".AlarmActionReceiver" android:exported="false" />
+        <receiver android:name=".QuickTimerReceiver" android:exported="false" />
+        <receiver android:name=".QuickTimerActionReceiver" android:exported="false" />
         <receiver android:name=".BootReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -42,6 +45,10 @@
         </receiver>
         <service
             android:name=".AlarmRingingService"
+            android:exported="false"
+            android:foregroundServiceType="mediaPlayback" />
+        <service
+            android:name=".QuickTimerRingingService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
     </application>

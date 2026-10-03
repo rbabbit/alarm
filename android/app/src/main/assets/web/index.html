@@ -92,7 +92,7 @@
         <div class="quick-content">
           <section class="quick-panel">
             <div class="quick-start-grid">
-              <label>Timer name<input id="quick-label" type="text" placeholder="What is this timer for?" /></label>
+              <label><span class="sr-only">Timer name</span><input id="quick-label" type="text" placeholder="Timer Name" aria-label="Timer name" /></label>
               <label>Minutes<select id="quick-minutes" aria-label="Timer minutes">
                 <option value="1">1 minute</option>
                 <option value="2">2 minutes</option>
@@ -156,7 +156,6 @@
                 <option value="60">60 minutes</option>
                 <option value="custom">Custom…</option>
               </select><input id="quick-custom-minutes" class="quick-custom-minutes" type="number" min="1" step="1" placeholder="Enter any number of minutes" hidden /></label>
-              <label>Seconds<input id="quick-seconds" type="number" min="0" max="59" value="0" /></label>
             </div>
             <button id="start-quick-timer" class="large-action">Start timer</button>
             <p id="quick-message" class="form-message" role="status"></p>

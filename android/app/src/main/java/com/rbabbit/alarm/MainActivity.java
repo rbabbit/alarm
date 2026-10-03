@@ -2,7 +2,10 @@ package com.rbabbit.alarm;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.net.Uri;
@@ -22,6 +25,7 @@ import android.webkit.JavascriptInterface;
 import android.window.OnBackInvokedDispatcher;
 
 import androidx.annotation.Nullable;
+import androidx.core.content.ContextCompat;
 import androidx.core.view.WindowCompat;
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewClientCompat;
@@ -39,6 +43,12 @@ public final class MainActivity extends Activity {
     private boolean appPermissionsRequested;
     private boolean exactAlarmSettingsRequested;
     private boolean fullScreenSettingsRequested;
+    private final BroadcastReceiver quickTimerStateReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (QuickTimerScheduler.ACTION_STATE_CHANGED.equals(intent.getAction())) notifyWebState();
+        }
+    };
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -58,6 +68,10 @@ public final class MainActivity extends Activity {
         configureWebView();
         NotificationHelper.createChannel(this);
         AlarmScheduler.syncAll(this);
+        QuickTimerNotificationHelper.createChannel(this);
+        QuickTimerScheduler.syncAll(this);
+        ContextCompat.registerReceiver(this, quickTimerStateReceiver,
+                new IntentFilter(QuickTimerScheduler.ACTION_STATE_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED);
         if (Build.VERSION.SDK_INT >= 33) {
             getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
                     OnBackInvokedDispatcher.PRIORITY_DEFAULT,
@@ -178,6 +192,7 @@ public final class MainActivity extends Activity {
         try {
             JSONObject state = new JSONObject(stateJson == null ? "{}" : stateJson);
             JSONArray alarms = state.optJSONArray("alarms");
+            JSONArray quickTimers = state.optJSONArray("quickTimers");
             boolean hasEnabledAlarm = false;
             if (alarms != null) {
                 for (int index = 0; index < alarms.length(); index += 1) {
@@ -186,7 +201,18 @@ public final class MainActivity extends Activity {
                     hasEnabledAlarm = true;
                 }
             }
-            if (!hasEnabledAlarm) return;
+            boolean hasRunningQuickTimer = false;
+            if (quickTimers != null) {
+                for (int index = 0; index < quickTimers.length(); index += 1) {
+                    JSONObject timer = quickTimers.optJSONObject(index);
+                    if (timer != null && ("running".equals(timer.optString("state"))
+                            || "ringing".equals(timer.optString("state")))) {
+                        hasRunningQuickTimer = true;
+                        break;
+                    }
+                }
+            }
+            if (!hasEnabledAlarm && !hasRunningQuickTimer) return;
 
             if (Build.VERSION.SDK_INT >= 31 && !AlarmScheduler.canScheduleExactAlarms(this) && !exactAlarmSettingsRequested) {
                 try {
@@ -252,6 +278,16 @@ public final class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void syncQuickTimers(String timersJson) {
+            runOnUiThread(() -> {
+                QuickTimerScheduler.cancelKnownTimers(MainActivity.this);
+                QuickTimerStore.sync(MainActivity.this, timersJson);
+                QuickTimerScheduler.syncAll(MainActivity.this);
+                requestAppPermissions(AlarmStore.getStateJson(MainActivity.this));
+            });
+        }
+
+        @JavascriptInterface
         public boolean canScheduleExactAlarms() {
             return AlarmScheduler.canScheduleExactAlarms(MainActivity.this);
         }
@@ -309,6 +345,7 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        try { unregisterReceiver(quickTimerStateReceiver); } catch (IllegalArgumentException ignored) { }
         if (webView != null) {
             webView.destroy();
         }
@@ -319,6 +356,7 @@ public final class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         AlarmScheduler.syncAll(this);
+        QuickTimerScheduler.syncAll(this);
         requestAppPermissions(AlarmStore.getStateJson(this));
         if (webView != null) webView.postDelayed(this::notifyWebState, 150);
     }

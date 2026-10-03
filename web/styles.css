@@ -163,7 +163,7 @@ button { cursor: pointer; }
 .quick-panel-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .quick-panel-heading h2 { margin: 0; font-size: 1.35rem; }
 .quick-panel-heading span { color: var(--muted); font-size: .85rem; }
-.quick-start-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(76px, .8fr) minmax(76px, .8fr); gap: 10px; }
+.quick-start-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(120px, .8fr); gap: 10px; }
 .quick-start-grid label { display: grid; gap: 7px; color: var(--muted); font-size: .85rem; }
 .quick-start-grid input, .quick-start-grid select { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 11px 9px; color: #222; background: #fff; }
 .quick-start-grid select { appearance: auto; }
@@ -226,6 +226,6 @@ button { cursor: pointer; }
   .bottom-nav button { font-size: 1.35rem; }
   .bottom-nav button span { font-size: .7rem; }
 }
-@media (max-width: 430px) { .quick-start-grid { grid-template-columns: 1fr 1fr; } .quick-start-grid label:first-child { grid-column: 1 / -1; } }
+@media (max-width: 430px) { .quick-start-grid { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .alarm-card { gap: 9px; padding: 16px 14px; } .alarm-details-row { gap: 10px; } .inline-input, .inline-time-button, .inline-interval input { font-size: 1rem; } .inline-name { width: min(180px, 47vw); max-width: 180px; font-size: .95rem; } .inline-time-button { width: 78px; min-width: 78px; font-size: 1.12rem; } .inline-interval input { width: 42px; max-width: 42px; font-size: .9rem; } .interval-unit { display: inline; font-size: .78rem; } .alarm-mode { font-size: .82rem; } .alarm-day-strip { gap: 6px; } .alarm-day-strip span, .alarm-day-strip button { width: 32px; height: 32px; font-size: .78rem; } .alarm-card .alarm-status { gap: 5px; font-size: .82rem; } .switch { min-width: 76px; } .history-item { gap: 8px; } .history-item-meta { gap: 8px; } .history-item time { font-size: .75rem; } .history-add { width: 30px; height: 30px; } }
 @media (min-width: 700px) { body { padding: 24px 0; } .app-shell { border-radius: 18px; overflow: hidden; } .screen { min-height: calc(100vh - 48px - var(--native-top-inset, 0px)); } #edit-screen { height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .alarm-list-screen { height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .quick-screen { height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .history-screen { height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .weather-screen { height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .bottom-nav { position: absolute; } }
