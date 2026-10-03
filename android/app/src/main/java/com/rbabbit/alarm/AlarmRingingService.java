@@ -2,9 +2,11 @@ package com.rbabbit.alarm;
 
 import android.app.Service;
 import android.content.Intent;
+import android.media.AudioManager;
 import android.media.AudioAttributes;
 import android.media.MediaPlayer;
 import android.media.RingtoneManager;
+import android.media.ToneGenerator;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -18,9 +20,35 @@ import org.json.JSONObject;
 /** Plays the alarm sound for the configured duration outside the WebView. */
 public final class AlarmRingingService extends Service {
     private final Handler handler = new Handler();
+    private ToneGenerator toneGenerator;
     private MediaPlayer player;
     private String alarmId;
     private boolean timedOut;
+    private int[][] tonePattern;
+    private int toneSegment;
+
+    private static final int SILENCE = -1;
+    private static final int[][] CLASSIC_PATTERN = {
+            {ToneGenerator.TONE_PROP_BEEP2, 220}, {SILENCE, 110},
+            {ToneGenerator.TONE_PROP_BEEP, 220}, {SILENCE, 350}
+    };
+    private static final int[][] GENTLE_PATTERN = {
+            {ToneGenerator.TONE_PROP_BEEP, 280}, {SILENCE, 100},
+            {ToneGenerator.TONE_PROP_BEEP2, 280}, {SILENCE, 100},
+            {ToneGenerator.TONE_PROP_ACK, 280}, {SILENCE, 520}
+    };
+    private static final int[][] PULSE_PATTERN = {
+            {ToneGenerator.TONE_PROP_BEEP2, 160}, {SILENCE, 460}
+    };
+    private static final int[][] CHIME_PATTERN = {
+            {ToneGenerator.TONE_PROP_BEEP, 230}, {SILENCE, 90},
+            {ToneGenerator.TONE_PROP_ACK, 230}, {SILENCE, 90},
+            {ToneGenerator.TONE_PROP_BEEP2, 230}, {SILENCE, 480}
+    };
+    private static final int[][] DIGITAL_PATTERN = {
+            {ToneGenerator.TONE_PROP_BEEP2, 90}, {SILENCE, 80},
+            {ToneGenerator.TONE_PROP_BEEP2, 90}, {SILENCE, 300}
+    };
 
     private final Runnable timeout = () -> {
         timedOut = true;
@@ -39,7 +67,7 @@ public final class AlarmRingingService extends Service {
         if (alarm == null) return START_NOT_STICKY;
         NotificationHelper.createChannel(this);
         startForegroundCompat(NotificationHelper.buildAlarmNotification(this, alarm, occurrence, snoozeIndex));
-        playAlarm(alarm.optDouble("volume", 0.8));
+        playAlarm(alarm.optString("sound", "classic"), alarm.optDouble("volume", 0.8));
         handler.removeCallbacks(timeout);
         handler.postDelayed(timeout, Math.max(1, alarm.optInt("durationSeconds", 60)) * 1000L);
         return START_NOT_STICKY;
@@ -54,8 +82,43 @@ public final class AlarmRingingService extends Service {
         }
     }
 
-    private void playAlarm(double volume) {
-        releasePlayer();
+    private void playAlarm(String sound, double volume) {
+        releaseAudio();
+        try {
+            int generatorVolume = (int) Math.round(Math.max(0.0, Math.min(1.0, volume)) * 100.0);
+            toneGenerator = new ToneGenerator(AudioManager.STREAM_ALARM, generatorVolume);
+            tonePattern = patternFor(sound);
+            toneSegment = 0;
+            handler.post(playToneSegment);
+            return;
+        } catch (Exception ignored) {
+            releaseAudio();
+        }
+
+        playDefaultAlarm(volume);
+    }
+
+    private final Runnable playToneSegment = new Runnable() {
+        @Override
+        public void run() {
+            if (toneGenerator == null || tonePattern == null || tonePattern.length == 0) return;
+            int[] segment = tonePattern[toneSegment];
+            if (segment[0] == SILENCE) toneGenerator.stopTone();
+            else toneGenerator.startTone(segment[0], segment[1]);
+            toneSegment = (toneSegment + 1) % tonePattern.length;
+            handler.postDelayed(this, segment[1]);
+        }
+    };
+
+    private static int[][] patternFor(String sound) {
+        if ("gentle".equals(sound)) return GENTLE_PATTERN;
+        if ("pulse".equals(sound)) return PULSE_PATTERN;
+        if ("chime".equals(sound)) return CHIME_PATTERN;
+        if ("digital".equals(sound)) return DIGITAL_PATTERN;
+        return CLASSIC_PATTERN;
+    }
+
+    private void playDefaultAlarm(double volume) {
         try {
             android.net.Uri uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
             if (uri == null) uri = Settings.System.DEFAULT_ALARM_ALERT_URI;
@@ -71,20 +134,28 @@ public final class AlarmRingingService extends Service {
             player.prepare();
             player.start();
         } catch (Exception ignored) {
-            releasePlayer();
+            releaseAudio();
         }
     }
 
     @Override
     public void onDestroy() {
         handler.removeCallbacks(timeout);
-        releasePlayer();
+        handler.removeCallbacks(playToneSegment);
+        releaseAudio();
         if (Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE);
         else stopForeground(true);
         super.onDestroy();
     }
 
-    private void releasePlayer() {
+    private void releaseAudio() {
+        handler.removeCallbacks(playToneSegment);
+        if (toneGenerator != null) {
+            toneGenerator.stopTone();
+            toneGenerator.release();
+            toneGenerator = null;
+        }
+        tonePattern = null;
         if (player == null) return;
         try { player.stop(); } catch (IllegalStateException ignored) { }
         player.release();

@@ -1,7 +1,9 @@
 const PATTERNS = {
   classic: { frequencies: [880, 660], onMs: 220, gapMs: 110, cycleMs: 900 },
   gentle: { frequencies: [523.25, 659.25, 783.99], onMs: 280, gapMs: 100, cycleMs: 1_200 },
-  pulse: { frequencies: [1_046.5], onMs: 160, gapMs: 90, cycleMs: 620 }
+  pulse: { frequencies: [1_046.5], onMs: 160, gapMs: 90, cycleMs: 620 },
+  chime: { frequencies: [659.25, 783.99, 1_046.5], onMs: 230, gapMs: 90, cycleMs: 1_350 },
+  digital: { frequencies: [1_046.5, 1_046.5], onMs: 90, gapMs: 80, cycleMs: 560 }
 };
 
 const VIBRATION = {
