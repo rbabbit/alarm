@@ -44,6 +44,10 @@ function nativeBridge() {
     : null;
 }
 
+function isNativeAndroid() {
+  return nativeBridge() !== null;
+}
+
 function mergeHistoryLists(...lists) {
   const byId = new Map();
   for (const list of lists) {
@@ -260,6 +264,10 @@ function renderPreview() {
 
 function renderRingingBanner() {
   const banner = document.querySelector("#ringing-banner");
+  if (isNativeAndroid()) {
+    banner.classList.add("hidden");
+    return;
+  }
   banner.classList.toggle("hidden", !ringing);
   if (ringing) {
     const minutes = nextSnoozeMinutes(ringing.alarm, ringing.snoozeIndex);
@@ -620,6 +628,7 @@ function nextOccurrence(alarm, afterMs) {
 }
 
 async function triggerAlarm(alarm, occurrenceAtMs, snoozeIndex = 0) {
+  if (isNativeAndroid()) return;
   if (ringing) return;
   ringing = { alarm, occurrenceAtMs, snoozeIndex };
   addHistory(alarm, "started");
@@ -664,6 +673,7 @@ function snoozeRinging() {
 }
 
 function schedulerTick() {
+  if (isNativeAndroid()) return;
   const now = Date.now();
   for (const alarm of alarms.filter((item) => item.enabled)) {
     const snooze = snoozeEvents.get(alarm.id);
