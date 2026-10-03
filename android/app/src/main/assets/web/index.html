@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#2f4e5a" />
     <title>Alarm</title>
-  <link rel="stylesheet" href="./styles.css?build=mobile-layout-v55" />
+  <link rel="stylesheet" href="./styles.css?build=alarm-three-line-v56" />
   </head>
   <body>
     <main class="app-shell">
@@ -50,7 +50,8 @@
 
           <section class="form-card">
             <div class="field-row"><label for="start-time">Alarm time range</label><span class="field-help">Start and end</span></div>
-            <div class="time-range"><input id="start-time" type="text" inputmode="numeric" pattern="(?:[01]\d|2[0-3]):[0-5]\d" maxlength="5" placeholder="HH:MM" autocomplete="off" required /><span>~</span><input id="end-time" type="text" inputmode="numeric" pattern="(?:[01]\d|2[0-3]):[0-5]\d" maxlength="5" placeholder="HH:MM" autocomplete="off" required /></div>
+            <div class="time-range"><input id="start-time" list="alarm-time-options" type="text" inputmode="numeric" pattern="(?:[01]\d|2[0-3]):[0-5]\d" maxlength="5" placeholder="HH:MM" autocomplete="off" required /><span>~</span><input id="end-time" list="alarm-time-options" type="text" inputmode="numeric" pattern="(?:[01]\d|2[0-3]):[0-5]\d" maxlength="5" placeholder="HH:MM" autocomplete="off" required /></div>
+            <datalist id="alarm-time-options"></datalist>
             <div id="once-time-note" class="field-help hidden">Once-a-day alarms use the start time.</div>
           </section>
 
@@ -128,6 +129,6 @@
         <nav class="bottom-nav"></nav>
       </section>
     </main>
-  <script type="module" src="./app.mjs?build=mobile-layout-v55"></script>
+  <script type="module" src="./app.mjs?build=alarm-three-line-v56"></script>
   </body>
 </html>

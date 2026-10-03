@@ -97,12 +97,14 @@ function renderList() {
   }
   list.innerHTML = alarms.map((alarm) => `
     <article class="alarm-card" data-edit="${alarm.id}">
-      <div class="alarm-compact-row">
-        <span class="inline-time-group">${timePickerMarkup(alarm.id, "startTime", alarm.startTime, "Start time")}${alarm.frequency === "several" ? `<span class="time-range-separator">&gt;</span>${timePickerMarkup(alarm.id, "endTime", alarm.endTime, "End time")}` : ""}</span>
+      <div class="alarm-time-row">
+        <span class="inline-time-group">${timePickerMarkup(alarm.id, "startTime", alarm.startTime, "Start time")}${alarm.frequency === "several" ? `<span class="time-range-separator">–</span>${timePickerMarkup(alarm.id, "endTime", alarm.endTime, "End time")}` : ""}</span>
+      </div>
+      <div class="alarm-details-row">
         <input class="inline-input inline-name" data-inline-field="name" value="${escapeHtml(alarm.name)}" aria-label="Alarm name" />
         ${alarm.frequency === "several" ? `<label class="inline-interval"><span class="sr-only">Interval</span><input type="number" min="1" max="1440" step="1" value="${alarm.intervalMinutes}" data-inline-field="intervalMinutes" aria-label="Alarm interval in minutes" /><span class="interval-unit">min</span></label>` : `<span class="alarm-mode">${escapeHtml(formatDays(alarm.repeatDays))}</span>`}
-        <div class="alarm-day-strip" aria-label="${escapeHtml(formatDays(alarm.repeatDays))}">${DAY_CODES.map((day) => `<button type="button" class="${alarm.repeatDays.includes(day) ? "selected" : ""}" data-inline-day="${day}" aria-label="${DAY_LABELS[day]}" aria-pressed="${alarm.repeatDays.includes(day)}">${day[0]}</button>`).join("")}</div>
       </div>
+      <div class="alarm-day-strip" aria-label="${escapeHtml(formatDays(alarm.repeatDays))}">${DAY_CODES.map((day) => `<button type="button" class="${alarm.repeatDays.includes(day) ? "selected" : ""}" data-inline-day="${day}" aria-label="${DAY_LABELS[day]}" aria-pressed="${alarm.repeatDays.includes(day)}">${day[0]}</button>`).join("")}</div>
       <div class="alarm-status"><button class="advanced-button" data-advanced="${alarm.id}" aria-label="Advanced settings for ${escapeHtml(alarm.name)}">⚙</button><span>${alarm.enabled ? "ON" : "OFF"}</span><button class="switch ${alarm.enabled ? "on" : ""}" data-toggle="${alarm.id}" aria-label="Toggle ${escapeHtml(alarm.name)}"></button></div>
     </article>`).join("");
 }
@@ -133,6 +135,12 @@ function formatCompactTime(alarm) {
 
 function displayTime(value) {
   return formatTime24(value);
+}
+
+function ensureTimeDatalist() {
+  const datalist = document.querySelector("#alarm-time-options");
+  if (!datalist || datalist.childElementCount) return;
+  datalist.innerHTML = Array.from({ length: 1440 }, (_, minutes) => `<option value="${formatTime24(minutes)}"></option>`).join("");
 }
 
 function displayDateTime(timestamp) {
@@ -748,6 +756,7 @@ document.querySelector("#test-sound").addEventListener("click", async () => {
 });
 
 setupNavigation();
+ensureTimeDatalist();
 document.addEventListener("pointerdown", primeAlarmAudio, { passive: true });
 document.addEventListener("keydown", primeAlarmAudio, { passive: true });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) primeAlarmAudio(); });

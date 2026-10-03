@@ -18,18 +18,19 @@ button { cursor: pointer; }
 .alarm-list::-webkit-scrollbar-track { background: #f1f1f1; }
 .alarm-list::-webkit-scrollbar-thumb { border: 2px solid #f1f1f1; border-radius: 8px; background: #111; }
 .list-add-bar { display: flex; flex: 0 0 104px; align-items: center; padding: 8px 20px; }
-.alarm-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 10px; row-gap: 6px; min-width: 0; padding: 14px 16px; border: 1px solid #ececec; border-radius: 10px; background: var(--card); box-shadow: 0 4px 14px rgba(0,0,0,.06); }
-.alarm-compact-row { display: grid; grid-template-columns: max-content max-content max-content; grid-template-rows: auto auto; align-items: center; gap: 6px 9px; min-width: 0; white-space: nowrap; }
+.alarm-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto auto; align-items: center; column-gap: 14px; row-gap: 10px; min-width: 0; padding: 16px 18px; border: 1px solid #ececec; border-radius: 12px; background: var(--card); box-shadow: 0 4px 14px rgba(0,0,0,.06); }
+.alarm-time-row { grid-column: 1 / -1; grid-row: 1; min-width: 0; }
+.alarm-details-row { display: flex; grid-column: 1; grid-row: 2; align-items: center; min-width: 0; gap: 14px; }
 .alarm-compact-row strong { min-width: 0; overflow: hidden; color: #111; font-size: 1.08rem; font-weight: 700; text-overflow: ellipsis; }
 .inline-input, .inline-time-button, .inline-interval input { min-width: 0; border: 0; border-bottom: 1px solid transparent; border-radius: 0; padding: 2px 0; color: #111; background: transparent; font: inherit; font-size: 1.08rem; outline: 0; }
 .inline-input:focus, .inline-time-button:focus, .inline-interval input:focus { border-bottom-color: var(--teal); }
-.inline-name { width: 120px; max-width: 120px; color: var(--muted); font-size: .88rem; font-weight: 600; }
+.inline-name { width: min(220px, 42vw); max-width: 220px; color: var(--muted); font-size: 1rem; font-weight: 600; }
 .inline-time-group { display: flex; align-items: center; gap: 0; }
 .time-range-separator { padding: 0 3px; color: var(--muted); font-size: 1rem; }
 .time-picker { position: relative; display: inline-block; }
-.inline-time-button { width: 68px; min-width: 68px; color: #111; text-align: left; }
+.inline-time-button { width: 82px; min-width: 82px; color: #111; text-align: left; font-size: 1.25rem; }
 .time-picker.open { z-index: 20; }
-.time-picker-menu { position: absolute; z-index: 25; top: calc(100% + 6px); left: 0; display: none; width: 118px; max-height: 250px; overflow-y: auto; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 8px 20px rgba(0,0,0,.14); }
+.time-picker-menu { position: absolute; z-index: 25; top: calc(100% + 6px); left: 0; display: none; width: 128px; max-height: 250px; overflow-y: auto; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: #fff; box-shadow: 0 8px 20px rgba(0,0,0,.14); }
 .time-picker.open .time-picker-menu { display: grid; gap: 1px; }
 .time-option { border: 0; border-radius: 4px; padding: 6px 8px; color: #111; background: #fff; text-align: left; }
 .time-option:hover, .time-option.selected { color: #111; background: #ededed; }
@@ -37,11 +38,11 @@ button { cursor: pointer; }
 .inline-interval input { width: 42px; max-width: 42px; color: var(--muted); font-size: .78rem; }
 .interval-unit { font-size: .7rem; }
 .alarm-mode { flex: 0 0 auto; color: var(--muted); font-size: .78rem; }
-.alarm-day-strip { display: flex; grid-column: 1 / -1; grid-row: 2; gap: 2px; }
-.alarm-day-strip span, .alarm-day-strip button { display: grid; place-items: center; width: 18px; height: 18px; border: 1px solid var(--line); border-radius: 50%; padding: 0; color: #9a9fa2; background: #fff; font-size: .62rem; }
+.alarm-day-strip { display: flex; grid-column: 1 / -1; grid-row: 3; gap: 6px; }
+.alarm-day-strip span, .alarm-day-strip button { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 50%; padding: 0; color: #9a9fa2; background: #fff; font-size: .82rem; }
 .alarm-day-strip button { cursor: pointer; }
 .alarm-day-strip span.selected, .alarm-day-strip button.selected { border-color: #111; color: #fff; background: #111; }
-.alarm-card .alarm-status { display: flex; grid-column: 2; grid-row: 1; align-items: center; gap: 3px; color: var(--muted); font-size: .78rem; font-weight: 700; }
+.alarm-card .alarm-status { display: flex; grid-column: 2; grid-row: 2; align-items: center; gap: 6px; color: var(--muted); font-size: .9rem; font-weight: 700; }
 .alarm-card .alarm-status button { margin-top: 0; }
 .advanced-button { border: 0; padding: 2px; color: var(--muted); background: transparent; font-size: 1.05rem; line-height: 1; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
@@ -209,5 +210,5 @@ button { cursor: pointer; }
   .bottom-nav button span { font-size: .7rem; }
 }
 @media (max-width: 430px) { .quick-start-grid { grid-template-columns: 1fr 1fr; } .quick-start-grid label:first-child { grid-column: 1 / -1; } }
-@media (max-width: 520px) { .alarm-card { gap: 6px; padding: 12px 10px; } .alarm-compact-row { gap: 6px; } .inline-input, .inline-time-button, .inline-interval input { font-size: .9rem; } .inline-name { width: 70px; max-width: 70px; font-size: .72rem; } .inline-time-button { width: 68px; min-width: 68px; } .inline-interval input { width: 36px; max-width: 36px; font-size: .68rem; } .interval-unit { display: none; } .alarm-mode { font-size: .68rem; } .alarm-day-strip { gap: 1px; } .alarm-day-strip span, .alarm-day-strip button { width: 16px; height: 16px; font-size: .56rem; } .alarm-card .alarm-status { font-size: .68rem; } .alarm-card .alarm-status > span { display: none; } .switch { width: 40px; height: 24px; } .switch::after { width: 18px; height: 18px; } .switch.on::after { transform: translateX(16px); } .history-item { gap: 8px; } .history-item-meta { gap: 8px; } .history-item time { font-size: .75rem; } .history-add { width: 30px; height: 30px; } }
+@media (max-width: 520px) { .alarm-card { gap: 9px; padding: 16px 14px; } .alarm-details-row { gap: 10px; } .inline-input, .inline-time-button, .inline-interval input { font-size: 1rem; } .inline-name { width: min(180px, 47vw); max-width: 180px; font-size: .95rem; } .inline-time-button { width: 78px; min-width: 78px; font-size: 1.12rem; } .inline-interval input { width: 42px; max-width: 42px; font-size: .9rem; } .interval-unit { display: inline; font-size: .78rem; } .alarm-mode { font-size: .82rem; } .alarm-day-strip { gap: 6px; } .alarm-day-strip span, .alarm-day-strip button { width: 32px; height: 32px; font-size: .78rem; } .alarm-card .alarm-status { gap: 5px; font-size: .82rem; } .alarm-card .alarm-status > span { display: inline; } .switch { width: 48px; height: 28px; } .switch::after { width: 20px; height: 20px; } .switch.on::after { transform: translateX(18px); } .history-item { gap: 8px; } .history-item-meta { gap: 8px; } .history-item time { font-size: .75rem; } .history-add { width: 30px; height: 30px; } }
 @media (min-width: 700px) { body { padding: 24px 0; } .app-shell { border-radius: 18px; overflow: hidden; } .screen { min-height: calc(100vh - 48px); } .alarm-list-screen { height: calc(100vh - 48px); } .quick-screen { height: calc(100vh - 48px); } .history-screen { height: calc(100vh - 48px); } .weather-screen { height: calc(100vh - 48px); } .bottom-nav { position: absolute; } }
