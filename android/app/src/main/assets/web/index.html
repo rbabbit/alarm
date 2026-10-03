@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#2f4e5a" />
+    <title>Alarm</title>
+  <link rel="stylesheet" href="./styles.css?build=weather-clean-v53" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section id="list-screen" class="screen alarm-list-screen">
+        <header class="app-bar">
+          <h1>Alarms</h1>
+        </header>
+        <div id="ringing-banner" class="ringing-banner hidden">
+          <div><strong id="ringing-name">Alarm ringing</strong><span id="ringing-time"></span></div>
+          <div class="ringing-actions"><button id="ringing-snooze">Snooze</button><button id="ringing-stop">Stop</button></div>
+        </div>
+        <div id="alarm-list" class="alarm-list"></div>
+        <div class="list-add-bar"><button id="add-alarm" class="fab" aria-label="Add alarm">+</button></div>
+        <nav class="bottom-nav" aria-label="Main navigation">
+          <button data-view="quick">◷<span>Multi-Timer</span></button>
+          <button data-view="list" class="active">☰<span>Alarms</span></button>
+          <button data-view="history">▣<span>History</span></button>
+          <button data-view="info">☁<span>Weather</span></button>
+        </nav>
+      </section>
+
+      <section id="edit-screen" class="screen hidden">
+        <header class="app-bar edit-bar">
+          <button id="back-to-list" class="back-button" aria-label="Back">‹</button>
+          <h1>Edit Alarm</h1>
+          <button id="delete-alarm" class="icon-button" aria-label="Delete alarm">▮</button>
+        </header>
+        <form id="alarm-form" class="alarm-form">
+          <section class="form-card">
+            <h2>Number of alarms</h2>
+            <div class="segmented" id="frequency-choice"><button type="button" data-frequency="several" class="selected">Several times a day</button><button type="button" data-frequency="once">Once a day</button></div>
+          </section>
+
+          <section class="form-card form-row-link">
+            <label for="alarm-name">Alarm name</label><input id="alarm-name" type="text" required />
+          </section>
+
+          <section class="form-card">
+            <h2>Repeat day</h2>
+            <div class="day-picker" id="repeat-days"></div>
+          </section>
+
+          <section class="form-card">
+            <div class="field-row"><label for="start-time">Alarm time range</label><span class="field-help">Start and end</span></div>
+            <div class="time-range"><input id="start-time" type="time" required /><span>~</span><input id="end-time" type="time" required /></div>
+            <div id="once-time-note" class="field-help hidden">Once-a-day alarms use the start time.</div>
+          </section>
+
+          <section id="interval-card" class="form-card">
+            <div class="field-row"><label for="interval-minutes">Alarm interval</label><span class="field-help">Minutes between occurrences</span></div>
+            <div class="interval-input"><input id="interval-minutes" type="number" min="1" max="1440" step="1" value="60" inputmode="numeric" aria-label="Alarm interval in minutes" /><span>minutes</span></div>
+          </section>
+
+          <section class="form-card">
+            <div class="field-row"><h2>Preview alarm list</h2><button type="button" id="view-all-preview" class="text-button">View all</button></div>
+            <div id="preview-list" class="preview-list"></div>
+          </section>
+
+          <section class="form-card">
+            <div class="field-row"><label for="sound">Alarm sound</label><span class="field-help">Choose and preview</span></div>
+            <select id="sound"><option value="classic">Classic</option><option value="gentle">Gentle</option><option value="pulse">Pulse</option></select>
+            <div class="volume-row"><button type="button" id="test-sound" class="play-button">▶</button><input id="volume" type="range" min="0" max="1" step="0.01" /><output id="volume-value">80%</output></div>
+          </section>
+
+          <section class="form-card settings-grid">
+            <label>Alarm duration<select id="duration-seconds"><option value="15">15 seconds</option><option value="30">30 seconds</option><option value="60">60 seconds</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select></label>
+            <label class="toggle-row">Create alarm history<input id="create-history" type="checkbox" /></label>
+            <label class="toggle-row">Snooze<input id="snooze-enabled" type="checkbox" /></label>
+            <label>Snooze sequence<input id="snooze-sequence" type="text" placeholder="25, 15, 10, 5" /></label>
+            <label>After snooze sequence<select id="after-snooze"><option value="dismiss">Dismiss</option><option value="repeat-last">Repeat last</option><option value="repeat-sequence">Repeat sequence</option></select></label>
+            <label class="toggle-row">Wake screen<input id="wake-screen" type="checkbox" /></label>
+          </section>
+
+          <section class="form-card">
+            <label class="toggle-row">Enable this alarm<input id="enabled" type="checkbox" /></label>
+          </section>
+
+          <p id="form-message" class="form-message" role="status"></p>
+          <button class="save-bar" type="submit">Save</button>
+        </form>
+      </section>
+
+      <section id="quick-screen" class="screen hidden simple-screen quick-screen">
+        <header class="app-bar"><h1>Multi-Timer</h1></header>
+        <div class="quick-content">
+          <section class="quick-panel">
+            <div class="quick-start-grid">
+              <label>Text<input id="quick-label" type="text" placeholder="Pizza done" /></label>
+              <label>Minutes<input id="quick-minutes" type="number" min="0" max="1440" value="25" /></label>
+              <label>Seconds<input id="quick-seconds" type="number" min="0" max="59" value="0" /></label>
+            </div>
+            <button id="start-quick-timer" class="large-action">Start timer</button>
+            <p id="quick-message" class="form-message" role="status"></p>
+          </section>
+
+          <section class="quick-panel active-timers-panel">
+            <div class="quick-panel-heading"><h2>Timers</h2></div>
+            <div id="quick-timers" class="quick-timers"></div>
+          </section>
+        </div>
+        <nav class="bottom-nav"></nav>
+      </section>
+      <section id="history-screen" class="screen hidden simple-screen history-screen"><header class="app-bar"><h1>History</h1></header><div id="history-list" class="simple-content"></div><nav class="bottom-nav"></nav></section>
+      <section id="info-screen" class="screen hidden simple-screen weather-screen">
+        <header class="app-bar"><h1>Weather</h1><span id="weather-status" class="weather-status" role="status">GPS not connected</span></header>
+        <div class="weather-content">
+          <section class="weather-panel weather-setup">
+            <div class="quick-panel-heading"><h2>Local weather</h2><span>Open-Meteo</span></div>
+            <div class="weather-actions"><button id="weather-load" class="large-action" type="button">Use my GPS location</button></div>
+            <p id="weather-message" class="form-message" role="status"></p>
+          </section>
+          <section id="weather-data" class="weather-panel hidden">
+            <div class="weather-location-heading"><div><h2 id="weather-location-name">Weather at your location</h2><span id="weather-coordinates"></span></div><button id="weather-refresh" class="outline-action" type="button">Refresh</button></div>
+            <div class="weather-current"><strong id="weather-temperature">--°C</strong><div><b id="weather-description">Waiting for forecast</b><span id="weather-updated"></span></div></div>
+            <div class="weather-metrics"><div><span>Low</span><strong id="weather-low">--</strong></div><div><span>High</span><strong id="weather-high">--</strong></div><div><span>Wind</span><strong id="weather-wind">--</strong></div><div><span>Humidity</span><strong id="weather-humidity">--</strong></div></div>
+            <h3>3-day forecast</h3><div id="weather-hourly" class="weather-hourly"></div>
+          </section>
+          <p class="weather-attribution">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo.com</a></p>
+        </div>
+        <nav class="bottom-nav"></nav>
+      </section>
+    </main>
+  <script type="module" src="./app.mjs?build=weather-clean-v53"></script>
+  </body>
+</html>

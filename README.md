@@ -31,6 +31,10 @@ The browser's `file:` URL restrictions are intentionally avoided by using a loca
 - [Architecture](./docs/ARCHITECTURE.md)
 - [Research sources](./docs/RESEARCH.md)
 
+## Android Studio
+
+The first Android wrapper is in [`android/`](./android/). Open `C:\timerApp\android` in Android Studio to run the current web interface on an Android device or emulator.
+
 ## Important boundary
 
 The web app is a prototype and control surface. Reliable Android alarms, lock-screen behavior, exact scheduling, reboot recovery, and voice stop require Android-native integration documented in the research notes.
