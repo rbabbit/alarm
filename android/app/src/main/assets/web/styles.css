@@ -4,7 +4,6 @@ body { margin: 0; min-height: 100vh; background: #f4f4f4; }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 .app-shell { width: min(100%, 620px); min-height: 100vh; margin: 0 auto; padding-top: var(--native-top-inset, 0px); background: #f7f7f7; box-shadow: 0 0 36px rgba(0,0,0,.08); }
-.native-android .app-shell { padding-top: 0; }
 .screen { min-height: calc(100dvh - var(--native-top-inset, 0px)); padding-bottom: calc(92px + var(--safe-bottom)); position: relative; }
 #edit-screen { display: flex; flex-direction: column; height: calc(100vh - var(--native-top-inset, 0px)); min-height: 0; overflow: hidden; padding-bottom: 0; }
 #edit-screen .alarm-form { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-color: #111 #f1f1f1; scrollbar-width: thin; }

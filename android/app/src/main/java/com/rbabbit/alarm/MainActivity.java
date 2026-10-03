@@ -107,10 +107,11 @@ public final class MainActivity extends Activity {
             }
             topInsetPx = topInset;
             bottomInsetPx = bottomInset;
-            // The WebView is edge-to-edge on current target SDKs. Reserve both
-            // system-bar areas in the native view so every web screen starts
-            // below the Android status bar and ends above the navigation bar.
-            view.setPadding(view.getPaddingLeft(), topInset, view.getPaddingRight(), bottomInset);
+            // Keep the WebView edge-to-edge and let the web shell own layout
+            // insets through the CSS variables below. Applying native padding
+            // as well would create two competing inset systems and can place
+            // headers underneath the Android status bar on some devices.
+            view.setPadding(0, 0, 0, 0);
             updateWebSafeArea();
             return insets;
         });
