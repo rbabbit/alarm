@@ -4,7 +4,7 @@ body { margin: 0; min-height: 100vh; background: #f4f4f4; }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 .app-shell { width: min(100%, 620px); min-height: 100vh; margin: 0 auto; padding-top: var(--native-top-inset, 0px); background: #f7f7f7; box-shadow: 0 0 36px rgba(0,0,0,.08); }
-.screen { min-height: 100dvh; padding-bottom: calc(92px + var(--safe-bottom)); position: relative; }
+.screen { min-height: calc(100dvh - var(--native-top-inset, 0px)); padding-bottom: calc(92px + var(--safe-bottom)); position: relative; }
 .hidden { display: none !important; }
 .app-bar { min-height: 96px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 26px; color: #111; border-bottom: 1px solid var(--line); background: #fff; }
 .app-bar h1 { margin: 0; font-size: clamp(2rem, 7vw, 3rem); font-weight: 400; letter-spacing: -0.04em; }
@@ -12,7 +12,7 @@ button { cursor: pointer; }
 .icon-button, .back-button { border: 0; background: transparent; color: #111; font-size: 2rem; line-height: 1; padding: 4px 8px; }
 .back-button { font-size: 4rem; font-weight: 200; }
 .delete-button { display: grid; place-items: center; width: 42px; height: 42px; padding: 0; font-size: 2.1rem; font-weight: 300; }
-.alarm-list-screen { display: flex; flex-direction: column; height: 100vh; min-height: 0; overflow: hidden; }
+.alarm-list-screen { display: flex; flex-direction: column; height: calc(100vh - var(--native-top-inset, 0px)); min-height: 0; overflow: hidden; }
 .alarm-list { display: grid; align-content: start; flex: 1 1 auto; gap: 14px; min-height: 0; overflow-y: auto; padding: 20px; scrollbar-color: #111 #f1f1f1; scrollbar-width: thin; }
 .alarm-list::-webkit-scrollbar { width: 10px; }
 .alarm-list::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -109,12 +109,12 @@ button { cursor: pointer; }
 .ringing-banner span { font-size: .85rem; opacity: .85; }
 .ringing-actions button { border: 1px solid #111; border-radius: 8px; padding: 8px 10px; color: #111; background: #fff; }
 .simple-content { padding: 50px 26px; text-align: center; }
-.quick-screen { display: flex; flex-direction: column; height: 100vh; min-height: 0; overflow: hidden; }
+.quick-screen { display: flex; flex-direction: column; height: calc(100vh - var(--native-top-inset, 0px)); min-height: 0; overflow: hidden; }
 .quick-screen .quick-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-color: #111 #f1f1f1; scrollbar-width: thin; }
 .quick-screen .quick-content::-webkit-scrollbar { width: 10px; }
 .quick-screen .quick-content::-webkit-scrollbar-track { background: #f1f1f1; }
 .quick-screen .quick-content::-webkit-scrollbar-thumb { border: 2px solid #f1f1f1; border-radius: 8px; background: #111; }
-.weather-screen { display: flex; flex-direction: column; height: 100vh; min-height: 0; overflow: hidden; }
+.weather-screen { display: flex; flex-direction: column; height: calc(100vh - var(--native-top-inset, 0px)); min-height: 0; overflow: hidden; }
 .weather-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 16px; scrollbar-color: #111 #f1f1f1; scrollbar-width: thin; }
 .weather-content::-webkit-scrollbar { width: 10px; }
 .weather-content::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -144,7 +144,7 @@ button { cursor: pointer; }
 .weather-hour strong { font-size: .95rem; }
 .weather-attribution { margin: 14px 4px 20px; color: var(--muted); font-size: .75rem; text-align: center; }
 .weather-attribution a { color: #111; }
-.history-screen { display: flex; flex-direction: column; height: 100vh; min-height: 0; overflow: hidden; }
+.history-screen { display: flex; flex-direction: column; height: calc(100vh - var(--native-top-inset, 0px)); min-height: 0; overflow: hidden; }
 .history-screen #history-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 24px 26px 112px; text-align: left; scrollbar-color: #111 #f1f1f1; scrollbar-width: thin; }
 .history-screen #history-list::-webkit-scrollbar { width: 10px; }
 .history-screen #history-list::-webkit-scrollbar-track { background: #f1f1f1; }
@@ -184,7 +184,7 @@ button { cursor: pointer; }
 @media (max-width: 520px) {
   body { background: #f4f4f4; }
   .app-shell { width: 100%; min-height: 100dvh; box-shadow: none; }
-  .screen { min-height: 100dvh; }
+  .screen { min-height: calc(100dvh - var(--native-top-inset, 0px)); }
   #edit-screen { padding-bottom: 24px; overflow-y: auto; }
   .app-bar { min-height: 72px; gap: 8px; padding: 12px 16px; }
   .app-bar h1 { font-size: 1.75rem; }
@@ -217,4 +217,4 @@ button { cursor: pointer; }
 }
 @media (max-width: 430px) { .quick-start-grid { grid-template-columns: 1fr 1fr; } .quick-start-grid label:first-child { grid-column: 1 / -1; } }
 @media (max-width: 520px) { .alarm-card { gap: 9px; padding: 16px 14px; } .alarm-details-row { gap: 10px; } .inline-input, .inline-time-button, .inline-interval input { font-size: 1rem; } .inline-name { width: min(180px, 47vw); max-width: 180px; font-size: .95rem; } .inline-time-button { width: 78px; min-width: 78px; font-size: 1.12rem; } .inline-interval input { width: 42px; max-width: 42px; font-size: .9rem; } .interval-unit { display: inline; font-size: .78rem; } .alarm-mode { font-size: .82rem; } .alarm-day-strip { gap: 6px; } .alarm-day-strip span, .alarm-day-strip button { width: 32px; height: 32px; font-size: .78rem; } .alarm-card .alarm-status { gap: 5px; font-size: .82rem; } .switch { min-width: 76px; } .history-item { gap: 8px; } .history-item-meta { gap: 8px; } .history-item time { font-size: .75rem; } .history-add { width: 30px; height: 30px; } }
-@media (min-width: 700px) { body { padding: 24px 0; } .app-shell { border-radius: 18px; overflow: hidden; } .screen { min-height: calc(100vh - 48px); } .alarm-list-screen { height: calc(100vh - 48px); } .quick-screen { height: calc(100vh - 48px); } .history-screen { height: calc(100vh - 48px); } .weather-screen { height: calc(100vh - 48px); } .bottom-nav { position: absolute; } }
+@media (min-width: 700px) { body { padding: 24px 0; } .app-shell { border-radius: 18px; overflow: hidden; } .screen { min-height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .alarm-list-screen { height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .quick-screen { height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .history-screen { height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .weather-screen { height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .bottom-nav { position: absolute; } }
