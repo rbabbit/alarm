@@ -985,7 +985,7 @@ document.querySelector("#view-all-preview").addEventListener("click", () => {
   renderPreview();
 });
 
-document.querySelector("#test-sound").addEventListener("click", async () => {
+document.querySelector("#preview-sound").addEventListener("click", async () => {
   try { draft = readDraft(); await alarmAudio.preview(audioSettings(draft)); } catch (error) { setFormMessage(error.message, "error"); }
 });
 

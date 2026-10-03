@@ -1,7 +1,7 @@
 import { DomainError } from "./errors.mjs";
 
 export const DEFAULT_SETTINGS = Object.freeze({
-  label: "Practice timer",
+  label: "Timer",
   kind: "one-shot",
   enabled: true,
   startDate: "",
