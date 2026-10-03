@@ -6,3 +6,4 @@ android/local.properties
 android/.gradle/
 android/build/
 android/app/build/
+_incoming_layout_check/
