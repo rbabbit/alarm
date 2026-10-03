@@ -2,11 +2,11 @@ package com.rbabbit.alarm;
 
 import android.app.Service;
 import android.content.Intent;
-import android.media.AudioManager;
 import android.media.AudioAttributes;
+import android.media.AudioFormat;
+import android.media.AudioTrack;
 import android.media.MediaPlayer;
 import android.media.RingtoneManager;
-import android.media.ToneGenerator;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -19,45 +19,40 @@ import org.json.JSONObject;
 
 /** Plays the alarm sound for the configured duration outside the WebView. */
 public final class AlarmRingingService extends Service {
+    private static final int SAMPLE_RATE = 44_100;
+    private static final int WAVE_SINE = 0;
+    private static final int WAVE_SQUARE = 1;
+    private static final int WAVE_SAWTOOTH = 2;
+
     private final Handler handler = new Handler();
-    private ToneGenerator toneGenerator;
+    private AudioTrack generatedTrack;
     private MediaPlayer player;
     private String alarmId;
     private boolean timedOut;
-    private int[][] tonePattern;
-    private int toneSegment;
 
-    private static final int SILENCE = -1;
-    private static final int[][] CLASSIC_PATTERN = {
-            {ToneGenerator.TONE_PROP_BEEP2, 220}, {SILENCE, 110},
-            {ToneGenerator.TONE_PROP_BEEP, 220}, {SILENCE, 350}
-    };
-    private static final int[][] GENTLE_PATTERN = {
-            {ToneGenerator.TONE_PROP_BEEP, 280}, {SILENCE, 100},
-            {ToneGenerator.TONE_PROP_BEEP2, 280}, {SILENCE, 100},
-            {ToneGenerator.TONE_PROP_ACK, 280}, {SILENCE, 520}
-    };
-    private static final int[][] PULSE_PATTERN = {
-            {ToneGenerator.TONE_PROP_BEEP2, 160}, {SILENCE, 460}
-    };
-    private static final int[][] CHIME_PATTERN = {
-            {ToneGenerator.TONE_PROP_BEEP, 230}, {SILENCE, 90},
-            {ToneGenerator.TONE_PROP_ACK, 230}, {SILENCE, 90},
-            {ToneGenerator.TONE_PROP_BEEP2, 230}, {SILENCE, 480}
-    };
-    private static final int[][] DIGITAL_PATTERN = {
-            {ToneGenerator.TONE_PROP_BEEP2, 90}, {SILENCE, 80},
-            {ToneGenerator.TONE_PROP_BEEP2, 90}, {SILENCE, 300}
-    };
-    private static final int[][] WAKE_UP_PATTERN = {
-            {ToneGenerator.TONE_PROP_BEEP2, 360}, {SILENCE, 80},
-            {ToneGenerator.TONE_PROP_ACK, 360}, {SILENCE, 80},
-            {ToneGenerator.TONE_PROP_BEEP2, 360}, {SILENCE, 400}
-    };
-    private static final int[][] LOUD_ALARM_PATTERN = {
-            {ToneGenerator.TONE_PROP_ACK, 600}, {SILENCE, 90},
-            {ToneGenerator.TONE_PROP_BEEP2, 600}, {SILENCE, 280}
-    };
+    private static final class ToneStep {
+        final double frequency;
+        final int durationMs;
+        final int waveform;
+
+        ToneStep(double frequency, int durationMs, int waveform) {
+            this.frequency = frequency;
+            this.durationMs = durationMs;
+            this.waveform = waveform;
+        }
+    }
+
+    private static ToneStep tone(double frequency, int durationMs) {
+        return new ToneStep(frequency, durationMs, WAVE_SINE);
+    }
+
+    private static ToneStep loudTone(double frequency, int durationMs, int waveform) {
+        return new ToneStep(frequency, durationMs, waveform);
+    }
+
+    private static ToneStep silence(int durationMs) {
+        return new ToneStep(0, durationMs, WAVE_SINE);
+    }
 
     private final Runnable timeout = () -> {
         timedOut = true;
@@ -94,11 +89,7 @@ public final class AlarmRingingService extends Service {
     private void playAlarm(String sound, double volume) {
         releaseAudio();
         try {
-            int generatorVolume = (int) Math.round(Math.max(0.0, Math.min(1.0, volume)) * 100.0);
-            toneGenerator = new ToneGenerator(AudioManager.STREAM_ALARM, generatorVolume);
-            tonePattern = patternFor(sound);
-            toneSegment = 0;
-            handler.post(playToneSegment);
+            playGeneratedAlarm(sound, volume);
             return;
         } catch (Exception ignored) {
             releaseAudio();
@@ -107,26 +98,76 @@ public final class AlarmRingingService extends Service {
         playDefaultAlarm(volume);
     }
 
-    private final Runnable playToneSegment = new Runnable() {
-        @Override
-        public void run() {
-            if (toneGenerator == null || tonePattern == null || tonePattern.length == 0) return;
-            int[] segment = tonePattern[toneSegment];
-            if (segment[0] == SILENCE) toneGenerator.stopTone();
-            else toneGenerator.startTone(segment[0], segment[1]);
-            toneSegment = (toneSegment + 1) % tonePattern.length;
-            handler.postDelayed(this, segment[1]);
-        }
-    };
+    private void playGeneratedAlarm(String sound, double volume) {
+        ToneStep[] pattern = patternFor(sound);
+        short[] samples = generateSamples(pattern);
+        AudioAttributes attributes = new AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build();
+        AudioFormat format = new AudioFormat.Builder()
+                .setSampleRate(SAMPLE_RATE)
+                .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                .build();
+        generatedTrack = new AudioTrack.Builder()
+                .setAudioAttributes(attributes)
+                .setAudioFormat(format)
+                .setTransferMode(AudioTrack.MODE_STATIC)
+                .setBufferSizeInBytes(samples.length * 2)
+                .build();
+        int written = generatedTrack.write(samples, 0, samples.length, AudioTrack.WRITE_BLOCKING);
+        if (written != samples.length) throw new IllegalStateException("Unable to load alarm tone");
+        generatedTrack.setLoopPoints(0, samples.length, -1);
+        generatedTrack.setVolume((float) Math.max(0.0, Math.min(1.0, volume)));
+        generatedTrack.play();
+    }
 
-    private static int[][] patternFor(String sound) {
-        if ("gentle".equals(sound)) return GENTLE_PATTERN;
-        if ("pulse".equals(sound)) return PULSE_PATTERN;
-        if ("chime".equals(sound)) return CHIME_PATTERN;
-        if ("digital".equals(sound)) return DIGITAL_PATTERN;
-        if ("wake-up".equals(sound)) return WAKE_UP_PATTERN;
-        if ("loud-alarm".equals(sound)) return LOUD_ALARM_PATTERN;
-        return CLASSIC_PATTERN;
+    private static ToneStep[] patternFor(String sound) {
+        if ("gentle".equals(sound)) return new ToneStep[]{
+                tone(523.25, 280), silence(100), tone(659.25, 280), silence(100), tone(783.99, 280), silence(160)
+        };
+        if ("pulse".equals(sound)) return new ToneStep[]{tone(1_046.5, 160), silence(460)};
+        if ("chime".equals(sound)) return new ToneStep[]{
+                tone(659.25, 230), silence(90), tone(783.99, 230), silence(90), tone(1_046.5, 230), silence(480)
+        };
+        if ("digital".equals(sound)) return new ToneStep[]{
+                tone(1_046.5, 90), silence(80), tone(1_046.5, 90), silence(300)
+        };
+        if ("wake-up".equals(sound)) return new ToneStep[]{
+                loudTone(880, 360, WAVE_SQUARE), silence(80), loudTone(1_046.5, 360, WAVE_SQUARE), silence(80), loudTone(880, 360, WAVE_SQUARE), silence(60)
+        };
+        if ("loud-alarm".equals(sound)) return new ToneStep[]{
+                loudTone(659.25, 600, WAVE_SAWTOOTH), silence(90), loudTone(1_046.5, 600, WAVE_SAWTOOTH), silence(190)
+        };
+        return new ToneStep[]{tone(880, 220), silence(110), tone(660, 220), silence(350)};
+    }
+
+    private static short[] generateSamples(ToneStep[] pattern) {
+        int sampleCount = 0;
+        for (ToneStep step : pattern) sampleCount += Math.round(step.durationMs * SAMPLE_RATE / 1000f);
+        short[] samples = new short[sampleCount];
+        int offset = 0;
+        for (ToneStep step : pattern) {
+            int length = Math.round(step.durationMs * SAMPLE_RATE / 1000f);
+            if (step.frequency > 0) {
+                for (int index = 0; index < length; index += 1) {
+                    double phase = 2 * Math.PI * step.frequency * index / SAMPLE_RATE;
+                    double wave = step.waveform == WAVE_SQUARE
+                            ? (Math.sin(phase) >= 0 ? 1 : -1)
+                            : step.waveform == WAVE_SAWTOOTH
+                            ? 2 * (phase / (2 * Math.PI) - Math.floor(phase / (2 * Math.PI) + 0.5))
+                            : Math.sin(phase);
+                    int fadeSamples = Math.min(length / 2, SAMPLE_RATE * 15 / 1000);
+                    double envelope = 1;
+                    if (fadeSamples > 0 && index < fadeSamples) envelope = index / (double) fadeSamples;
+                    if (fadeSamples > 0 && index >= length - fadeSamples) envelope = (length - index) / (double) fadeSamples;
+                    samples[offset + index] = (short) Math.round(wave * envelope * 0.9 * Short.MAX_VALUE);
+                }
+            }
+            offset += length;
+        }
+        return samples;
     }
 
     private void playDefaultAlarm(double volume) {
@@ -152,7 +193,6 @@ public final class AlarmRingingService extends Service {
     @Override
     public void onDestroy() {
         handler.removeCallbacks(timeout);
-        handler.removeCallbacks(playToneSegment);
         releaseAudio();
         if (Build.VERSION.SDK_INT >= 24) stopForeground(STOP_FOREGROUND_REMOVE);
         else stopForeground(true);
@@ -160,13 +200,11 @@ public final class AlarmRingingService extends Service {
     }
 
     private void releaseAudio() {
-        handler.removeCallbacks(playToneSegment);
-        if (toneGenerator != null) {
-            toneGenerator.stopTone();
-            toneGenerator.release();
-            toneGenerator = null;
+        if (generatedTrack != null) {
+            try { generatedTrack.stop(); } catch (IllegalStateException ignored) { }
+            generatedTrack.release();
+            generatedTrack = null;
         }
-        tonePattern = null;
         if (player == null) return;
         try { player.stop(); } catch (IllegalStateException ignored) { }
         player.release();
