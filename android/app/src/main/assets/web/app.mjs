@@ -171,7 +171,7 @@ function renderPreview() {
   const preview = previewOccurrences(draft);
   const expanded = document.querySelector("#preview-list").classList.contains("expanded");
   const visible = expanded ? preview : preview.slice(0, 4);
-  document.querySelector("#preview-list").innerHTML = visible.map((item) => `<div class="preview-row"><span>${item.index} ${item.index === 1 ? "time" : "times"}</span><span></span><strong>${item.label}</strong></div>`).join("");
+  document.querySelector("#preview-list").innerHTML = visible.map((item) => `<div class="preview-row"><span>${item.index} ${item.index === 1 ? "time" : "times"}</span><span></span><strong>${formatTime24(item.minutes)}</strong></div>`).join("");
   document.querySelector("#view-all-preview").textContent = expanded ? "Show less" : `View all ${preview.length}`;
 }
 
@@ -455,6 +455,8 @@ function readDraft() {
 function openEditor(id = null) {
   editingId = id;
   draft = id ? createAlarm(JSON.parse(JSON.stringify(alarms.find((alarm) => alarm.id === id)))) : createAlarm({ name: "New alarm" });
+  document.querySelector("#edit-screen").scrollTop = 0;
+  window.scrollTo(0, 0);
   showView("edit");
 }
 

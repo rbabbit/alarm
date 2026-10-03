@@ -3,6 +3,7 @@ package com.rbabbit.alarm;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -22,13 +23,21 @@ import androidx.webkit.WebViewClientCompat;
 public final class MainActivity extends Activity {
     private static final int LOCATION_REQUEST_CODE = 1001;
     private WebView webView;
+    private int bottomInsetPx;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         webView = new WebView(this);
+        webView.setBackgroundColor(Color.WHITE);
+        webView.setFitsSystemWindows(true);
         setContentView(webView);
+        getWindow().setStatusBarColor(Color.WHITE);
+        getWindow().setNavigationBarColor(Color.WHITE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            getWindow().setNavigationBarContrastEnforced(false);
+        }
         applySystemBarInsets();
         configureWebView();
 
@@ -55,7 +64,9 @@ public final class MainActivity extends Activity {
             } else {
                 bottomInset = insets.getSystemWindowInsetBottom();
             }
+            bottomInsetPx = bottomInset;
             view.setPadding(view.getPaddingLeft(), view.getPaddingTop(), view.getPaddingRight(), bottomInset);
+            updateWebSafeArea();
             return insets;
         });
         webView.requestApplyInsets();
@@ -96,6 +107,12 @@ public final class MainActivity extends Activity {
             public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
                 return assetLoader.shouldInterceptRequest(Uri.parse(url));
             }
+
+            @Override
+            public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                updateWebSafeArea();
+            }
         });
 
         webView.setWebChromeClient(new WebChromeClient() {
@@ -111,6 +128,16 @@ public final class MainActivity extends Activity {
 
     private void loadWebApp() {
         webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html");
+    }
+
+    private void updateWebSafeArea() {
+        if (webView == null) return;
+        float density = getResources().getDisplayMetrics().density;
+        int bottomInsetCssPx = Math.round(bottomInsetPx / Math.max(density, 1f));
+        webView.evaluateJavascript(
+                "document.documentElement.style.setProperty('--native-bottom-inset', '" + bottomInsetCssPx + "px');",
+                null
+        );
     }
 
     @Override
