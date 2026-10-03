@@ -438,7 +438,7 @@ function startQuickTimer(durationSeconds, label) {
   quickTimers.unshift(timer);
   saveQuickTimers();
   addQuickHistory(timer, "started");
-  setQuickMessage(`${timer.label} started.`);
+  setQuickMessage("");
   renderQuick();
 }
 

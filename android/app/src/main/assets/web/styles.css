@@ -162,13 +162,14 @@ button { cursor: pointer; }
 .quick-panel-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
 .quick-panel-heading h2 { margin: 0; font-size: 1.35rem; }
 .quick-panel-heading span { color: var(--muted); font-size: .85rem; }
-.quick-start-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(120px, .8fr); gap: 10px; }
+.quick-start-grid { display: grid; gap: 14px; }
+.quick-action-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: end; }
 .quick-start-grid label { display: grid; gap: 7px; color: var(--muted); font-size: .85rem; }
 .quick-start-grid input, .quick-start-grid select { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 11px 9px; color: #222; background: #fff; }
 .quick-start-grid select { appearance: auto; }
 .quick-custom-minutes { margin-top: 7px; }
 .quick-start-grid input:focus { border-color: var(--teal); outline: 2px solid rgba(0,0,0,.12); }
-.quick-panel .large-action { width: 100%; margin-top: 16px; }
+.quick-action-row .large-action { width: 100%; height: 45px; margin: 0; padding: 0 14px; font-size: 1.1rem; }
 .quick-panel .form-message { margin: 12px 0 0; }
 .quick-start-grid input:disabled, #start-quick-timer:disabled { cursor: not-allowed; opacity: .45; }
 .outline-action { border: 1px solid #111; border-radius: 7px; padding: 11px 14px; color: #111; background: #fff; font-weight: 700; }
@@ -240,6 +241,6 @@ button { cursor: pointer; }
   .bottom-nav .bottom-nav-item { font-size: 1.35rem; }
   .bottom-nav .bottom-nav-item > span { font-size: .7rem; }
 }
-@media (max-width: 430px) { .quick-start-grid { grid-template-columns: 1fr; } }
+@media (max-width: 430px) { .quick-action-row { gap: 8px; } .quick-action-row .large-action { padding: 0 8px; font-size: 1rem; } }
 @media (max-width: 520px) { .alarm-card { gap: 9px; padding: 16px 14px; } .alarm-details-row { gap: 10px; } .inline-input, .inline-time-button, .inline-interval input { font-size: 1rem; } .inline-name { width: min(180px, 47vw); max-width: 180px; font-size: .95rem; } .inline-time-button { width: 78px; min-width: 78px; font-size: 1.12rem; } .inline-interval input { width: 42px; max-width: 42px; font-size: .9rem; } .interval-unit { display: inline; font-size: .78rem; } .alarm-mode { font-size: .82rem; } .alarm-day-strip { gap: 6px; } .alarm-day-strip span, .alarm-day-strip button { width: 32px; height: 32px; font-size: .78rem; } .alarm-card .alarm-status { gap: 5px; font-size: .82rem; } .alarm-switch { min-width: 104px; } .alarm-switch-control { width: 60px; } .alarm-switch-input:checked + .alarm-switch-track .alarm-switch-thumb { transform: translateX(24px); } }
 @media (min-width: 700px) { body { padding: 24px 0; } .app-shell { border-radius: 18px; overflow: hidden; } .screen { min-height: calc(100vh - 48px - var(--native-top-inset, 0px)); } #edit-screen { height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .alarm-list-screen { height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .quick-screen { height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .counter-screen { height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .weather-screen { height: calc(100vh - 48px - var(--native-top-inset, 0px)); } .bottom-nav { position: absolute; } }
