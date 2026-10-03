@@ -23,7 +23,7 @@
           <button data-view="quick">◷<span>Multi-Timer</span></button>
           <button data-view="list" class="active">☰<span>Alarms</span></button>
           <button data-view="counter">◉<span>Counter</span></button>
-          <button data-view="info">☁<span>Weather</span></button>
+          <span class="bottom-nav-item">☁<span>Weather</span></span>
         </nav>
       </section>
 
@@ -182,7 +182,7 @@
         <header class="app-bar"><h1>Weather</h1><span id="weather-status" class="weather-status" role="status">GPS not connected</span></header>
         <div class="weather-content">
           <section class="weather-panel weather-setup">
-            <div class="quick-panel-heading"><h2>Local weather</h2><span>Open-Meteo</span></div>
+            <div class="quick-panel-heading"><h2>Local weather</h2></div>
             <div class="weather-actions"><button id="weather-load" class="large-action" type="button">Use my GPS location</button></div>
             <p id="weather-message" class="form-message" role="status"></p>
           </section>
@@ -192,7 +192,6 @@
             <div class="weather-metrics"><div><span>Low</span><strong id="weather-low">--</strong></div><div><span>High</span><strong id="weather-high">--</strong></div><div><span>Wind</span><strong id="weather-wind">--</strong></div><div><span>Humidity</span><strong id="weather-humidity">--</strong></div></div>
             <h3>3-day forecast</h3><div id="weather-hourly" class="weather-hourly"></div>
           </section>
-          <p class="weather-attribution">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo.com</a></p>
         </div>
         <nav class="bottom-nav"></nav>
       </section>
