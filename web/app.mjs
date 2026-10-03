@@ -4,6 +4,7 @@ import { DAY_CODES, DAY_LABELS, JS_DAY_CODES, createAlarm, formatDays, formatTim
 const ALARMS_KEY = "timer-app.alarms.v2";
 const HISTORY_KEY = "timer-app.history.v1";
 const QUICK_TIMERS_KEY = "timer-app.quick-timers.v1";
+const COUNTERS_KEY = "timer-app.counters.v1";
 const WEATHER_KEY = "timer-app.weather.v3";
 const OPEN_METEO_ENDPOINT = "https://api.open-meteo.com/v1/forecast";
 const MAX_QUICK_TIMERS = 10;
@@ -14,10 +15,16 @@ let alarms = loadJson(ALARMS_KEY, []).map((alarm) => createAlarm({ ...alarm, ala
 let history = loadJson(HISTORY_KEY, []).slice(-MAX_HISTORY);
 saveJson(HISTORY_KEY, history);
 let quickTimers = loadJson(QUICK_TIMERS_KEY, []).map((timer) => ({ ...timer, audioStarted: false }));
+const storedCounters = loadJson(COUNTERS_KEY, null);
+let counters = Array.isArray(storedCounters)
+  ? storedCounters.map(normalizeCounter).filter(Boolean).slice(0, 20)
+  : [createCounter("Counter 1")];
+saveJson(COUNTERS_KEY, counters);
 let weatherState = loadJson(WEATHER_KEY, { latitude: null, longitude: null, timezone: "", current: null, hourly: null, daily: null, receivedAt: null });
 let currentView = "list";
 let editingId = null;
 let draft = null;
+let openCounterSettingsId = null;
 let ringing = null;
 let ringStopTimer = null;
 const nextEvents = new Map();
@@ -28,7 +35,7 @@ const screens = {
   list: document.querySelector("#list-screen"),
   edit: document.querySelector("#edit-screen"),
   quick: document.querySelector("#quick-screen"),
-  history: document.querySelector("#history-screen"),
+  counter: document.querySelector("#counter-screen"),
   info: document.querySelector("#info-screen")
 };
 
@@ -37,6 +44,27 @@ function loadJson(key, fallback) {
 }
 
 function saveJson(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
+
+function createCounter(name) {
+  return { id: `counter-${crypto.randomUUID()}`, name, value: 0, step: 1, updatedAt: Date.now() };
+}
+
+function normalizeCounter(counter) {
+  if (!counter || typeof counter !== "object") return null;
+  const value = Number.isFinite(Number(counter.value)) ? Math.trunc(Number(counter.value)) : 0;
+  const step = Number.isFinite(Number(counter.step)) ? Math.max(1, Math.trunc(Number(counter.step))) : 1;
+  return {
+    id: String(counter.id || `counter-${crypto.randomUUID()}`),
+    name: String(counter.name || "Counter").trim() || "Counter",
+    value,
+    step,
+    updatedAt: Number(counter.updatedAt) || Date.now()
+  };
+}
+
+function saveCounters() {
+  saveJson(COUNTERS_KEY, counters);
+}
 
 function nativeBridge() {
   return window.AndroidAlarmBridge && typeof window.AndroidAlarmBridge.getState === "function"
@@ -124,7 +152,7 @@ function escapeHtml(value) {
 
 function navMarkup(active) {
   return [
-    ["quick", "◷", "Multi-Timer"], ["list", "☰", "Alarms"], ["history", "▣", "History"], ["info", "☁", "Weather"]
+    ["quick", "◷", "Multi-Timer"], ["list", "☰", "Alarms"], ["counter", "◉", "Counter"], ["info", "☁", "Weather"]
   ].map(([view, icon, label]) => `<button data-view="${view}" class="${active === view ? "active" : ""}">${icon}<span>${label}</span></button>`).join("");
 }
 
@@ -159,7 +187,7 @@ function showView(view) {
 function render() {
   if (currentView === "list") renderList();
   if (currentView === "edit") renderEdit();
-  if (currentView === "history") renderHistory();
+  if (currentView === "counter") renderCounter();
   if (currentView === "quick") renderQuick();
   if (currentView === "info") renderInfo();
   renderRingingBanner();
@@ -313,42 +341,6 @@ function renderRingingBanner() {
   }
 }
 
-function renderHistory() {
-  const target = document.querySelector("#history-list");
-  target.innerHTML = history.length
-    ? history.slice().reverse().map((item) => `<div class="history-item"><span>${escapeHtml(item.name)}<br /><small>${escapeHtml(item.action)}</small></span><div class="history-item-meta"><time>${displayDateTime(item.atMs)}</time><button type="button" class="history-add" data-history-add="${escapeHtml(item.id)}" aria-label="Add ${escapeHtml(item.name)} as an alarm" title="Add as alarm">+</button></div></div>`).join("")
-    : `<div class="empty-state">No alarm history yet.</div>`;
-}
-
-function addAlarmFromHistory(historyId) {
-  const item = history.find((entry) => entry.id === historyId);
-  if (!item) return;
-
-  const currentAlarm = alarms.find((alarm) => alarm.id === item.alarmId);
-  const savedAlarm = item.alarmSnapshot;
-  const source = currentAlarm ?? savedAlarm;
-  const sourceCopy = source ? JSON.parse(JSON.stringify(source)) : {};
-  delete sourceCopy.id;
-
-  const eventDate = new Date(item.atMs);
-  const eventMinutes = eventDate.getHours() * 60 + eventDate.getMinutes();
-  const restored = createAlarm({
-    ...sourceCopy,
-    ...(source ? {} : {
-      frequency: "once",
-      repeatDays: [JS_DAY_CODES[eventDate.getDay()]],
-      startTime: displayTime(eventMinutes)
-    }),
-    name: source?.name || item.name || "New alarm",
-    enabled: false
-  });
-
-  alarms.push(restored);
-  saveJson(ALARMS_KEY, alarms);
-  syncNativeState();
-  showView("list");
-}
-
 function renderQuick() {
   const activeCount = quickTimers.length;
   document.querySelector("#start-quick-timer").disabled = activeCount >= MAX_QUICK_TIMERS;
@@ -369,6 +361,60 @@ function renderQuick() {
       return `<article class="quick-timer-card ${timer.state === "ringing" ? "ringing" : ""}"><div><strong>${escapeHtml(timer.label)}</strong><span>${status}</span></div><time>${formatQuickDuration(seconds)}</time><div class="quick-timer-actions">${action}<button data-quick-action="stop" data-quick-id="${timer.id}">Stop</button></div></article>`;
     }).join("")
     : `<div class="empty-state">No timers running.</div>`;
+}
+
+function renderCounter() {
+  const list = document.querySelector("#counter-list");
+  document.querySelector("#counter-total").textContent = String(counters.length);
+  list.innerHTML = counters.length
+    ? counters.map((counter) => `
+      <article class="counter-card" data-counter-id="${escapeHtml(counter.id)}">
+        <div class="counter-card-header">
+          <label class="counter-name-field"><span class="sr-only">Counter name</span><input type="text" value="${escapeHtml(counter.name)}" data-counter-field="name" aria-label="Counter name" /></label>
+          <button type="button" class="counter-settings-button" data-counter-action="settings" aria-label="Settings for ${escapeHtml(counter.name)}">⚙</button>
+          <button type="button" class="counter-delete" data-counter-action="delete" aria-label="Delete ${escapeHtml(counter.name)}">×</button>
+        </div>
+        <output class="counter-value" aria-live="polite">${counter.value.toLocaleString()}</output>
+        <div class="counter-controls">
+          <button type="button" class="counter-step-button" data-counter-action="decrement" aria-label="Decrease ${escapeHtml(counter.name)}">−</button>
+          <button type="button" class="counter-reset" data-counter-action="reset">Reset</button>
+          <button type="button" class="counter-step-button" data-counter-action="increment" aria-label="Increase ${escapeHtml(counter.name)}">+</button>
+        </div>
+        <div class="counter-options ${openCounterSettingsId === counter.id ? "open" : ""}"><label>Step <input type="number" min="1" step="1" value="${counter.step}" data-counter-field="step" aria-label="Step amount" /></label><span>Saved automatically</span></div>
+      </article>`).join("")
+    : `<div class="empty-state">No counters yet.<br />Use + to create one.</div>`;
+}
+
+function updateCounter(id, changes) {
+  const current = counters.find((counter) => counter.id === id);
+  if (!current) return;
+  const next = normalizeCounter({ ...current, ...changes, updatedAt: Date.now() });
+  counters = counters.map((counter) => counter.id === id ? next : counter);
+  saveCounters();
+  renderCounter();
+}
+
+function changeCounter(id, action) {
+  const current = counters.find((counter) => counter.id === id);
+  if (!current) return;
+  const delta = action === "increment" ? current.step : action === "decrement" ? -current.step : 0;
+  updateCounter(id, { value: action === "reset" ? 0 : current.value + delta });
+}
+
+function addCounter() {
+  if (counters.length >= 20) return;
+  counters.push(createCounter(`Counter ${counters.length + 1}`));
+  saveCounters();
+  showView("counter");
+  const newest = document.querySelector("#counter-list .counter-card:last-child");
+  newest?.querySelector("[data-counter-field=\"name\"]")?.focus();
+}
+
+function deleteCounter(id) {
+  counters = counters.filter((counter) => counter.id !== id);
+  openCounterSettingsId = null;
+  saveCounters();
+  renderCounter();
 }
 
 function formatQuickDuration(totalSeconds) {
@@ -783,9 +829,30 @@ document.querySelector("#quick-timers").addEventListener("click", (event) => {
   if (button.dataset.quickAction === "stop") stopQuickTimer(id);
 });
 
-document.querySelector("#history-list").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-history-add]");
-  if (button) addAlarmFromHistory(button.dataset.historyAdd);
+document.querySelector("#add-counter").addEventListener("click", addCounter);
+
+document.querySelector("#counter-list").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-counter-action]");
+  if (!button) return;
+  const card = button.closest("[data-counter-id]");
+  if (!card) return;
+  const id = card.dataset.counterId;
+  if (button.dataset.counterAction === "delete") deleteCounter(id);
+  else if (button.dataset.counterAction === "settings") {
+    openCounterSettingsId = openCounterSettingsId === id ? null : id;
+    renderCounter();
+  }
+  else changeCounter(id, button.dataset.counterAction);
+});
+
+document.querySelector("#counter-list").addEventListener("change", (event) => {
+  const field = event.target.closest("[data-counter-field]");
+  const card = field?.closest("[data-counter-id]");
+  if (!field || !card) return;
+  const current = counters.find((counter) => counter.id === card.dataset.counterId);
+  if (!current) return;
+  if (field.dataset.counterField === "name") updateCounter(current.id, { name: field.value });
+  if (field.dataset.counterField === "step") updateCounter(current.id, { step: Number(field.value) });
 });
 
 function updateAlarmInline(id, changes) {

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#2f4e5a" />
     <title>Kala Time – Alarm Clock</title>
-  <link rel="stylesheet" href="./styles.css?build=native-alarm-v58" />
+  <link rel="stylesheet" href="./styles.css?build=native-alarm-v59" />
   </head>
   <body>
     <main class="app-shell">
@@ -22,7 +22,7 @@
         <nav class="bottom-nav" aria-label="Main navigation">
           <button data-view="quick">◷<span>Multi-Timer</span></button>
           <button data-view="list" class="active">☰<span>Alarms</span></button>
-          <button data-view="history">▣<span>History</span></button>
+          <button data-view="counter">◉<span>Counter</span></button>
           <button data-view="info">☁<span>Weather</span></button>
         </nav>
       </section>
@@ -168,7 +168,16 @@
         </div>
         <nav class="bottom-nav"></nav>
       </section>
-      <section id="history-screen" class="screen hidden simple-screen history-screen"><header class="app-bar"><h1>History</h1></header><div id="history-list" class="simple-content"></div><nav class="bottom-nav"></nav></section>
+      <section id="counter-screen" class="screen hidden simple-screen counter-screen">
+        <header class="app-bar"><h1>Counter</h1><button id="add-counter" class="icon-button counter-add" type="button" aria-label="Add counter">+</button></header>
+        <div class="counter-content">
+          <section class="counter-panel">
+            <div class="counter-heading"><div><h2>Saved counters</h2><p>Counts are saved on this device.</p></div><strong id="counter-total">0</strong></div>
+            <div id="counter-list" class="counter-list"></div>
+          </section>
+        </div>
+        <nav class="bottom-nav"></nav>
+      </section>
       <section id="info-screen" class="screen hidden simple-screen weather-screen">
         <header class="app-bar"><h1>Weather</h1><span id="weather-status" class="weather-status" role="status">GPS not connected</span></header>
         <div class="weather-content">
@@ -188,6 +197,6 @@
         <nav class="bottom-nav"></nav>
       </section>
     </main>
-  <script type="module" src="./app.mjs?build=native-alarm-v57"></script>
+  <script type="module" src="./app.mjs?build=native-alarm-v59"></script>
   </body>
 </html>
