@@ -91,7 +91,7 @@ public final class AlarmStore {
     }
 
     public static synchronized void appendHistory(Context context, JSONObject alarm, String action) {
-        if (alarm == null || !alarm.optBoolean("createHistory", true)) return;
+        if (alarm == null) return;
         JSONArray history = readArray(context, HISTORY);
         try {
             JSONObject item = new JSONObject()

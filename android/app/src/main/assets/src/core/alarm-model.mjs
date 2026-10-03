@@ -15,11 +15,9 @@ export const DEFAULT_ALARM = Object.freeze({
   sound: "classic",
   volume: 1,
   durationSeconds: 60,
-  createHistory: true,
   snoozeEnabled: true,
   snoozeSequenceMinutes: [25, 15, 10, 5],
   afterSnoozeExhausted: "dismiss",
-  wakeScreen: true,
   enabled: false
 });
 

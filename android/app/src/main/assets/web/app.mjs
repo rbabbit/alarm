@@ -267,6 +267,7 @@ function syncFrequencyFields() {
   const timeRangeHelp = document.querySelector("#time-range-help");
   const separator = document.querySelector("#time-range-separator");
   const endTime = document.querySelector("#end-time");
+  const previewCard = document.querySelector("#preview-card");
   if (!timeRange || !timeRangeLabel || !timeRangeHelp || !separator || !endTime) return;
 
   timeRange.classList.toggle("single", isSingle);
@@ -277,6 +278,7 @@ function syncFrequencyFields() {
   endTime.disabled = isSingle;
   endTime.required = !isSingle;
   document.querySelector("#interval-card").classList.toggle("hidden", isSingle);
+  previewCard?.classList.toggle("hidden", isSingle);
 }
 
 function renderEdit() {
@@ -291,11 +293,9 @@ function renderEdit() {
   form.querySelector("#volume-value").value = `${Math.round(draft.volume * 100)}%`;
   form.querySelector("#volume-value").textContent = `${Math.round(draft.volume * 100)}%`;
   form.querySelector("#duration-seconds").value = String(draft.durationSeconds);
-  form.querySelector("#create-history").checked = draft.createHistory;
   form.querySelector("#snooze-enabled").checked = draft.snoozeEnabled;
   form.querySelector("#snooze-sequence").value = draft.snoozeSequenceMinutes.join(", ");
   form.querySelector("#after-snooze").value = draft.afterSnoozeExhausted;
-  form.querySelector("#wake-screen").checked = draft.wakeScreen;
   form.querySelector("#enabled").checked = draft.enabled;
   form.querySelector("#enabled-state").textContent = draft.enabled ? "ON" : "OFF";
   form.querySelector("#enabled").setAttribute("aria-checked", String(draft.enabled));
@@ -652,11 +652,9 @@ function readDraft() {
     sound: form.querySelector("#sound").value,
     volume: Number(form.querySelector("#volume").value),
     durationSeconds: Number(form.querySelector("#duration-seconds").value),
-    createHistory: form.querySelector("#create-history").checked,
     snoozeEnabled: form.querySelector("#snooze-enabled").checked,
     snoozeSequenceMinutes: form.querySelector("#snooze-sequence").value.split(",").map((value) => Number(value.trim())).filter((value) => value > 0),
     afterSnoozeExhausted: form.querySelector("#after-snooze").value,
-    wakeScreen: form.querySelector("#wake-screen").checked,
     enabled: form.querySelector("#enabled").checked
   });
 }
@@ -705,7 +703,6 @@ function audioSettings(alarm) {
 }
 
 function addHistory(alarm, action) {
-  if (!alarm.createHistory) return;
   history.push({ id: crypto.randomUUID(), alarmId: alarm.id, name: alarm.name, action, atMs: Date.now(), alarmSnapshot: JSON.parse(JSON.stringify(alarm)) });
   history = history.slice(-MAX_HISTORY);
   saveJson(HISTORY_KEY, history);
