@@ -42,7 +42,6 @@ public final class MainActivity extends Activity {
     private int bottomInsetPx;
     private boolean appPermissionsRequested;
     private boolean exactAlarmSettingsRequested;
-    private boolean fullScreenSettingsRequested;
     private final BroadcastReceiver quickTimerStateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -226,19 +225,6 @@ public final class MainActivity extends Activity {
                 }
             }
 
-            if (Build.VERSION.SDK_INT >= 34 && needsWakeScreen(alarms)
-                    && !NotificationHelper.canUseFullScreenIntent(this)
-                    && !fullScreenSettingsRequested) {
-                try {
-                    fullScreenSettingsRequested = true;
-                    startActivity(new Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT)
-                            .setData(Uri.parse("package:" + getPackageName())));
-                    return;
-                } catch (RuntimeException ignored) {
-                    // The notification remains available if this settings page is unavailable.
-                }
-            }
-
             java.util.ArrayList<String> missing = new java.util.ArrayList<>();
             if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 missing.add(Manifest.permission.POST_NOTIFICATIONS);
@@ -250,15 +236,6 @@ public final class MainActivity extends Activity {
         } catch (JSONException ignored) {
             // Invalid web state cannot be used to request permissions.
         }
-    }
-
-    private boolean needsWakeScreen(JSONArray alarms) {
-        if (alarms == null) return false;
-        for (int index = 0; index < alarms.length(); index += 1) {
-            JSONObject alarm = alarms.optJSONObject(index);
-            if (alarm != null && alarm.optBoolean("enabled", false) && alarm.optBoolean("wakeScreen", true)) return true;
-        }
-        return false;
     }
 
     public final class AndroidAlarmBridge {

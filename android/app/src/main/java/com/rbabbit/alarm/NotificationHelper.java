@@ -11,7 +11,7 @@ import android.os.Build;
 
 import org.json.JSONObject;
 
-/** Creates alarm notifications and the full-screen ringing intent. */
+/** Creates the native notification card used when an alarm is ringing. */
 public final class NotificationHelper {
     public static final String CHANNEL_ID = "alarm_ringing";
     private static final String FALLBACK_CHANNEL_ID = "alarm_fallback";
@@ -56,12 +56,6 @@ public final class NotificationHelper {
         manager.createNotificationChannel(fallback);
     }
 
-    public static boolean canUseFullScreenIntent(Context context) {
-        if (Build.VERSION.SDK_INT < 34) return true;
-        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
-        return manager != null && manager.canUseFullScreenIntent();
-    }
-
     public static Notification buildAlarmNotification(Context context, JSONObject alarm, long occurrenceAtMs, int snoozeIndex) {
         return buildAlarmNotification(context, alarm, occurrenceAtMs, snoozeIndex, CHANNEL_ID);
     }
@@ -71,18 +65,15 @@ public final class NotificationHelper {
         String alarmId = alarm.optString("id");
         String name = alarm.optString("name", "Alarm");
         int nextSnooze = AlarmScheduler.nextSnoozeMinutes(alarm, snoozeIndex);
-        Intent ringingIntent = new Intent(context, RingingActivity.class)
-                .putExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)
-                .putExtra(AlarmScheduler.EXTRA_OCCURRENCE_AT, occurrenceAtMs)
-                .putExtra(AlarmScheduler.EXTRA_SNOOZE_INDEX, snoozeIndex)
+        Intent mainIntent = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent contentIntent = PendingIntent.getActivity(
-                context, AlarmScheduler.requestCode(alarmId), ringingIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                context, AlarmScheduler.requestCode(alarmId), mainIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
         Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? new Notification.Builder(context, channelId)
                 : new Notification.Builder(context).setPriority(Notification.PRIORITY_MAX);
-        builder.setSmallIcon(android.R.drawable.ic_dialog_alert)
+        builder.setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                 .setContentTitle(name)
                 .setContentText("Alarm ringing")
                 .setCategory(Notification.CATEGORY_ALARM)
@@ -115,9 +106,6 @@ public final class NotificationHelper {
                 PendingIntent.getBroadcast(context, AlarmScheduler.requestCode(alarmId) + 2, stopIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
         ).build());
 
-        if (alarm.optBoolean("wakeScreen", true) && canUseFullScreenIntent(context)) {
-            builder.setFullScreenIntent(contentIntent, true);
-        }
         return builder.build();
     }
 

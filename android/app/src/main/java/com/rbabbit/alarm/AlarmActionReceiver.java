@@ -46,6 +46,5 @@ public final class AlarmActionReceiver extends BroadcastReceiver {
     private static void stopRinging(Context context, String alarmId) {
         context.stopService(new Intent(context, AlarmRingingService.class));
         NotificationHelper.cancel(context, alarmId);
-        context.sendBroadcast(new Intent(RingingActivity.ACTION_FINISH).setPackage(context.getPackageName()));
     }
 }
