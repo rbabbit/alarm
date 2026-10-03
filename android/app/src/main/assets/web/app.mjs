@@ -137,12 +137,6 @@ function displayTime(value) {
   return formatTime24(value);
 }
 
-function ensureTimeDatalist() {
-  const datalist = document.querySelector("#alarm-time-options");
-  if (!datalist || datalist.childElementCount) return;
-  datalist.innerHTML = Array.from({ length: 1440 }, (_, minutes) => `<option value="${formatTime24(minutes)}"></option>`).join("");
-}
-
 function displayDateTime(timestamp) {
   const date = new Date(timestamp);
   const minutes = date.getHours() * 60 + date.getMinutes();
@@ -756,7 +750,6 @@ document.querySelector("#test-sound").addEventListener("click", async () => {
 });
 
 setupNavigation();
-ensureTimeDatalist();
 document.addEventListener("pointerdown", primeAlarmAudio, { passive: true });
 document.addEventListener("keydown", primeAlarmAudio, { passive: true });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) primeAlarmAudio(); });
