@@ -42,14 +42,18 @@ button { cursor: pointer; }
 .alarm-day-strip span, .alarm-day-strip button { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 50%; padding: 0; color: #9a9fa2; background: #fff; font-size: .82rem; }
 .alarm-day-strip button { cursor: pointer; }
 .alarm-day-strip span.selected, .alarm-day-strip button.selected { border-color: #111; color: #fff; background: #111; }
-.alarm-card .alarm-status { display: flex; grid-column: 2; grid-row: 2; align-items: center; gap: 6px; color: var(--muted); font-size: .9rem; font-weight: 700; }
+.alarm-card .alarm-status { display: flex; grid-column: 2; grid-row: 2; align-items: center; gap: 8px; color: var(--muted); font-size: .9rem; font-weight: 700; }
 .alarm-card .alarm-status button { margin-top: 0; }
 .advanced-button { border: 0; padding: 2px; color: var(--muted); background: transparent; font-size: 1.05rem; line-height: 1; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
-.switch { width: 44px; height: 26px; border: 1px solid #aaa; border-radius: 20px; padding: 3px; background: #fff; }
-.switch::after { content: ""; display: block; width: 18px; height: 18px; border-radius: 50%; background: #aaa; transition: transform .18s ease; }
-.switch.on { border-color: #111; background: #fff; }
-.switch.on::after { transform: translateX(18px); }
+.switch { display: inline-flex; align-items: center; gap: 6px; min-width: 78px; height: 34px; border: 1px solid #aaa; border-radius: 999px; padding: 3px 5px 3px 8px; color: #777; background: #fff; cursor: pointer; }
+.switch-label { min-width: 22px; font-size: .72rem; font-weight: 800; text-align: center; }
+.switch-track { position: relative; display: inline-block; width: 38px; height: 24px; border: 1px solid #aaa; border-radius: 999px; background: #f4f4f4; }
+.switch-thumb { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #aaa; transition: transform .18s ease, background-color .18s ease; }
+.switch.on { border-color: #111; color: #111; }
+.switch.on .switch-track { border-color: #111; background: #111; }
+.switch.on .switch-thumb { background: #fff; transform: translateX(14px); }
+.switch:focus-visible, .advanced-button:focus-visible, .toggle-input:focus-visible + .switch-track { outline: 3px solid #777; outline-offset: 3px; }
 .fab { position: static; width: 76px; height: 76px; border: 2px solid #111; border-radius: 22px; color: #111; background: #fff; box-shadow: 0 6px 16px rgba(0,0,0,.1); font-size: 3.5rem; font-weight: 200; line-height: 1; }
 .empty-state { padding: 100px 30px; text-align: center; color: var(--muted); font-size: 1.1rem; }
 .bottom-nav { position: fixed; z-index: 5; bottom: var(--safe-bottom); left: 50%; display: grid; grid-template-columns: repeat(4, 1fr); width: min(100%, 620px); min-height: 86px; transform: translateX(-50%); color: #111; border-top: 1px solid var(--line); background: #fff; }
@@ -88,12 +92,14 @@ button { cursor: pointer; }
 .settings-grid { display: grid; gap: 22px; }
 .settings-grid label { display: grid; gap: 4px; }
 .toggle-row { display: flex !important; align-items: center; justify-content: space-between; gap: 16px; }
-.toggle-row input[type="checkbox"] { appearance: none; width: 56px; height: 31px; border-radius: 20px; background: #b5b5b5; cursor: pointer; }
-.toggle-row input[type="checkbox"]::after { content: ""; display: block; width: 25px; height: 25px; margin: 3px; border-radius: 50%; background: #fff; transition: transform .18s ease; }
-.toggle-row input[type="checkbox"] { border: 1px solid #aaa; background: #fff; }
-.toggle-row input[type="checkbox"]:checked { border-color: #111; background: #fff; }
-.toggle-row input[type="checkbox"]:checked::after { background: #111; }
-.toggle-row input[type="checkbox"]:checked::after { transform: translateX(25px); }
+.toggle-control { display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.toggle-state { min-width: 2.25rem; color: var(--muted); font-size: .78rem; font-weight: 700; text-align: right; }
+.switch-wrap { position: relative; display: inline-block; width: 64px; height: 34px; flex: 0 0 auto; }
+.toggle-input { position: absolute; inset: 0; z-index: 2; width: 100% !important; height: 100% !important; margin: 0 !important; opacity: 0; cursor: pointer; }
+.switch-wrap .switch-track { position: absolute; inset: 0; width: auto; height: auto; border: 1px solid #aaa; background: #f4f4f4; }
+.switch-wrap .switch-thumb { top: 3px; left: 3px; width: 26px; height: 26px; }
+.toggle-input:checked + .switch-track { border-color: #111; background: #111; }
+.toggle-input:checked + .switch-track .switch-thumb { background: #fff; transform: translateX(30px); }
 .form-message { min-height: 20px; margin: 0 18px; color: var(--muted); }
 #weather-message:empty { display: none; }
 .form-message[data-kind="error"] { color: #111; font-weight: 700; }
@@ -210,5 +216,5 @@ button { cursor: pointer; }
   .bottom-nav button span { font-size: .7rem; }
 }
 @media (max-width: 430px) { .quick-start-grid { grid-template-columns: 1fr 1fr; } .quick-start-grid label:first-child { grid-column: 1 / -1; } }
-@media (max-width: 520px) { .alarm-card { gap: 9px; padding: 16px 14px; } .alarm-details-row { gap: 10px; } .inline-input, .inline-time-button, .inline-interval input { font-size: 1rem; } .inline-name { width: min(180px, 47vw); max-width: 180px; font-size: .95rem; } .inline-time-button { width: 78px; min-width: 78px; font-size: 1.12rem; } .inline-interval input { width: 42px; max-width: 42px; font-size: .9rem; } .interval-unit { display: inline; font-size: .78rem; } .alarm-mode { font-size: .82rem; } .alarm-day-strip { gap: 6px; } .alarm-day-strip span, .alarm-day-strip button { width: 32px; height: 32px; font-size: .78rem; } .alarm-card .alarm-status { gap: 5px; font-size: .82rem; } .alarm-card .alarm-status > span { display: inline; } .switch { width: 48px; height: 28px; } .switch::after { width: 20px; height: 20px; } .switch.on::after { transform: translateX(18px); } .history-item { gap: 8px; } .history-item-meta { gap: 8px; } .history-item time { font-size: .75rem; } .history-add { width: 30px; height: 30px; } }
+@media (max-width: 520px) { .alarm-card { gap: 9px; padding: 16px 14px; } .alarm-details-row { gap: 10px; } .inline-input, .inline-time-button, .inline-interval input { font-size: 1rem; } .inline-name { width: min(180px, 47vw); max-width: 180px; font-size: .95rem; } .inline-time-button { width: 78px; min-width: 78px; font-size: 1.12rem; } .inline-interval input { width: 42px; max-width: 42px; font-size: .9rem; } .interval-unit { display: inline; font-size: .78rem; } .alarm-mode { font-size: .82rem; } .alarm-day-strip { gap: 6px; } .alarm-day-strip span, .alarm-day-strip button { width: 32px; height: 32px; font-size: .78rem; } .alarm-card .alarm-status { gap: 5px; font-size: .82rem; } .switch { min-width: 76px; } .history-item { gap: 8px; } .history-item-meta { gap: 8px; } .history-item time { font-size: .75rem; } .history-add { width: 30px; height: 30px; } }
 @media (min-width: 700px) { body { padding: 24px 0; } .app-shell { border-radius: 18px; overflow: hidden; } .screen { min-height: calc(100vh - 48px); } .alarm-list-screen { height: calc(100vh - 48px); } .quick-screen { height: calc(100vh - 48px); } .history-screen { height: calc(100vh - 48px); } .weather-screen { height: calc(100vh - 48px); } .bottom-nav { position: absolute; } }

@@ -72,15 +72,15 @@
 
           <section class="form-card settings-grid">
             <label>Alarm duration<select id="duration-seconds"><option value="15">15 seconds</option><option value="30">30 seconds</option><option value="60">60 seconds</option><option value="120">2 minutes</option><option value="300">5 minutes</option></select></label>
-            <label class="toggle-row">Create alarm history<input id="create-history" type="checkbox" /></label>
-            <label class="toggle-row">Snooze<input id="snooze-enabled" type="checkbox" /></label>
+            <label class="toggle-row"><span>Create alarm history</span><span class="toggle-control"><span class="toggle-state" data-switch-label="create-history">OFF</span><span class="switch-wrap"><input id="create-history" class="toggle-input" type="checkbox" role="switch" aria-checked="false" /><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></span></span></label>
+            <label class="toggle-row"><span>Snooze</span><span class="toggle-control"><span class="toggle-state" data-switch-label="snooze-enabled">OFF</span><span class="switch-wrap"><input id="snooze-enabled" class="toggle-input" type="checkbox" role="switch" aria-checked="false" /><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></span></span></label>
             <label>Snooze sequence<input id="snooze-sequence" type="text" placeholder="25, 15, 10, 5" /></label>
             <label>After snooze sequence<select id="after-snooze"><option value="dismiss">Dismiss</option><option value="repeat-last">Repeat last</option><option value="repeat-sequence">Repeat sequence</option></select></label>
-            <label class="toggle-row">Wake screen<input id="wake-screen" type="checkbox" /></label>
+            <label class="toggle-row"><span>Wake screen</span><span class="toggle-control"><span class="toggle-state" data-switch-label="wake-screen">OFF</span><span class="switch-wrap"><input id="wake-screen" class="toggle-input" type="checkbox" role="switch" aria-checked="false" /><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></span></span></label>
           </section>
 
           <section class="form-card">
-            <label class="toggle-row">Enable this alarm<input id="enabled" type="checkbox" /></label>
+            <label class="toggle-row"><span>Enable this alarm</span><span class="toggle-control"><span id="enabled-state" class="toggle-state" data-switch-label="enabled">OFF</span><span class="switch-wrap"><input id="enabled" class="toggle-input" type="checkbox" role="switch" aria-label="Enable this alarm" aria-checked="false" /><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></span></span></label>
           </section>
 
           <p id="form-message" class="form-message" role="status"></p>

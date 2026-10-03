@@ -105,7 +105,7 @@ function renderList() {
         ${alarm.frequency === "several" ? `<label class="inline-interval"><span class="sr-only">Interval</span><input type="number" min="1" max="1440" step="1" value="${alarm.intervalMinutes}" data-inline-field="intervalMinutes" aria-label="Alarm interval in minutes" /><span class="interval-unit">min</span></label>` : `<span class="alarm-mode">${escapeHtml(formatDays(alarm.repeatDays))}</span>`}
       </div>
       <div class="alarm-day-strip" aria-label="${escapeHtml(formatDays(alarm.repeatDays))}">${DAY_CODES.map((day) => `<button type="button" class="${alarm.repeatDays.includes(day) ? "selected" : ""}" data-inline-day="${day}" aria-label="${DAY_LABELS[day]}" aria-pressed="${alarm.repeatDays.includes(day)}">${day[0]}</button>`).join("")}</div>
-      <div class="alarm-status"><button class="advanced-button" data-advanced="${alarm.id}" aria-label="Advanced settings for ${escapeHtml(alarm.name)}">⚙</button><span>${alarm.enabled ? "ON" : "OFF"}</span><button class="switch ${alarm.enabled ? "on" : ""}" data-toggle="${alarm.id}" aria-label="Toggle ${escapeHtml(alarm.name)}"></button></div>
+      <div class="alarm-status"><button type="button" class="advanced-button" data-advanced="${alarm.id}" aria-label="Advanced settings for ${escapeHtml(alarm.name)}">⚙</button><button type="button" class="switch ${alarm.enabled ? "on" : ""}" data-toggle="${alarm.id}" role="switch" aria-checked="${alarm.enabled}" aria-label="Toggle ${escapeHtml(alarm.name)}"><span class="switch-label">${alarm.enabled ? "ON" : "OFF"}</span><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button></div>
     </article>`).join("");
 }
 
@@ -143,6 +143,19 @@ function displayDateTime(timestamp) {
   return `${date.toLocaleDateString()} ${displayTime(minutes)}`;
 }
 
+function formatSnoozeLength(minutes) {
+  return `${minutes} ${minutes === 1 ? "minute" : "minutes"}`;
+}
+
+function nextSnoozeMinutes(alarm, snoozeIndex) {
+  if (!alarm.snoozeEnabled || !alarm.snoozeSequenceMinutes.length) return null;
+  const values = alarm.snoozeSequenceMinutes;
+  if (snoozeIndex < values.length) return values[snoozeIndex];
+  if (alarm.afterSnoozeExhausted === "repeat-last") return values[values.length - 1];
+  if (alarm.afterSnoozeExhausted === "repeat-sequence") return values[0];
+  return null;
+}
+
 function renderEdit() {
   if (!draft) return;
   const form = document.querySelector("#alarm-form");
@@ -161,11 +174,22 @@ function renderEdit() {
   form.querySelector("#after-snooze").value = draft.afterSnoozeExhausted;
   form.querySelector("#wake-screen").checked = draft.wakeScreen;
   form.querySelector("#enabled").checked = draft.enabled;
+  form.querySelector("#enabled-state").textContent = draft.enabled ? "ON" : "OFF";
+  form.querySelector("#enabled").setAttribute("aria-checked", String(draft.enabled));
+  syncSwitchStates(form);
   document.querySelectorAll("#frequency-choice button").forEach((button) => button.classList.toggle("selected", button.dataset.frequency === draft.frequency));
   document.querySelector("#interval-card").classList.toggle("hidden", draft.frequency === "once");
   document.querySelector("#once-time-note").classList.toggle("hidden", draft.frequency !== "once");
   document.querySelector("#repeat-days").innerHTML = DAY_CODES.map((day) => `<button type="button" data-day="${day}" class="${draft.repeatDays.includes(day) ? "selected" : ""}" aria-label="${DAY_LABELS[day]}">${day[0]}</button>`).join("");
   renderPreview();
+}
+
+function syncSwitchStates(root = document) {
+  root.querySelectorAll('input[type="checkbox"][role="switch"]').forEach((input) => {
+    const state = root.querySelector(`[data-switch-label="${input.id}"]`);
+    if (state) state.textContent = input.checked ? "ON" : "OFF";
+    input.setAttribute("aria-checked", String(input.checked));
+  });
 }
 
 function renderPreview() {
@@ -181,8 +205,13 @@ function renderRingingBanner() {
   const banner = document.querySelector("#ringing-banner");
   banner.classList.toggle("hidden", !ringing);
   if (ringing) {
+    const minutes = nextSnoozeMinutes(ringing.alarm, ringing.snoozeIndex);
     document.querySelector("#ringing-name").textContent = ringing.alarm.name;
-    document.querySelector("#ringing-time").textContent = `Started ${displayDateTime(ringing.occurrenceAtMs)}`;
+    document.querySelector("#ringing-time").textContent = minutes === null
+      ? `Started ${displayDateTime(ringing.occurrenceAtMs)}`
+      : `Started ${displayDateTime(ringing.occurrenceAtMs)} · Next snooze ${formatSnoozeLength(minutes)}`;
+    document.querySelector("#ringing-snooze").textContent = minutes === null ? "Snooze unavailable" : `Snooze ${formatSnoozeLength(minutes)}`;
+    document.querySelector("#ringing-snooze").disabled = minutes === null;
   }
 }
 
@@ -589,6 +618,9 @@ document.querySelector("#add-alarm").addEventListener("click", () => openEditor(
 document.querySelector("#back-to-list").addEventListener("click", () => showView("list"));
 document.querySelector("#delete-alarm").addEventListener("click", deleteCurrentAlarm);
 document.querySelector("#alarm-form").addEventListener("submit", saveDraft);
+document.querySelector("#alarm-form").addEventListener("change", (event) => {
+  if (event.target.matches('input[type="checkbox"][role="switch"]')) syncSwitchStates(document);
+});
 document.querySelector("#ringing-stop").addEventListener("click", () => stopRinging());
 document.querySelector("#ringing-snooze").addEventListener("click", snoozeRinging);
 document.querySelector("#start-quick-timer").addEventListener("click", () => {

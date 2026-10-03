@@ -23,6 +23,7 @@ import androidx.webkit.WebViewClientCompat;
 public final class MainActivity extends Activity {
     private static final int LOCATION_REQUEST_CODE = 1001;
     private WebView webView;
+    private int topInsetPx;
     private int bottomInsetPx;
 
     @Override
@@ -58,14 +59,18 @@ public final class MainActivity extends Activity {
 
     private void applySystemBarInsets() {
         webView.setOnApplyWindowInsetsListener((view, insets) -> {
+            int topInset;
             int bottomInset;
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                topInset = insets.getInsets(WindowInsets.Type.statusBars()).top;
                 bottomInset = insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
             } else {
+                topInset = insets.getSystemWindowInsetTop();
                 bottomInset = insets.getSystemWindowInsetBottom();
             }
+            topInsetPx = topInset;
             bottomInsetPx = bottomInset;
-            view.setPadding(view.getPaddingLeft(), view.getPaddingTop(), view.getPaddingRight(), bottomInset);
+            view.setPadding(view.getPaddingLeft(), topInset, view.getPaddingRight(), bottomInset);
             updateWebSafeArea();
             return insets;
         });
@@ -133,9 +138,11 @@ public final class MainActivity extends Activity {
     private void updateWebSafeArea() {
         if (webView == null) return;
         float density = getResources().getDisplayMetrics().density;
+        int topInsetCssPx = Math.round(topInsetPx / Math.max(density, 1f));
         int bottomInsetCssPx = Math.round(bottomInsetPx / Math.max(density, 1f));
         webView.evaluateJavascript(
-                "document.documentElement.style.setProperty('--native-bottom-inset', '" + bottomInsetCssPx + "px');",
+                "document.documentElement.style.setProperty('--native-top-inset', '" + topInsetCssPx + "px');" +
+                        "document.documentElement.style.setProperty('--native-bottom-inset', '" + bottomInsetCssPx + "px');",
                 null
         );
     }
