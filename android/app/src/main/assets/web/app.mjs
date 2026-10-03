@@ -380,6 +380,12 @@ function startQuickTimer(durationSeconds, label) {
   renderQuick();
 }
 
+function selectedQuickMinutes() {
+  const preset = document.querySelector("#quick-minutes").value;
+  if (preset !== "custom") return Number(preset);
+  return Number(document.querySelector("#quick-custom-minutes").value);
+}
+
 function setQuickMessage(message, kind = "info") {
   const element = document.querySelector("#quick-message");
   element.textContent = message;
@@ -712,8 +718,13 @@ document.querySelector("#alarm-form").addEventListener("change", (event) => {
 });
 document.querySelector("#ringing-stop").addEventListener("click", () => stopRinging());
 document.querySelector("#ringing-snooze").addEventListener("click", snoozeRinging);
+document.querySelector("#quick-minutes").addEventListener("change", (event) => {
+  const custom = document.querySelector("#quick-custom-minutes");
+  custom.hidden = event.target.value !== "custom";
+  if (!custom.hidden) custom.focus();
+});
 document.querySelector("#start-quick-timer").addEventListener("click", () => {
-  const minutes = Number(document.querySelector("#quick-minutes").value);
+  const minutes = selectedQuickMinutes();
   const seconds = Number(document.querySelector("#quick-seconds").value);
   startQuickTimer(Math.round(minutes * 60 + seconds), document.querySelector("#quick-label").value);
 });

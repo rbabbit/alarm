@@ -159,7 +159,9 @@ button { cursor: pointer; }
 .quick-panel-heading span { color: var(--muted); font-size: .85rem; }
 .quick-start-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(76px, .8fr) minmax(76px, .8fr); gap: 10px; }
 .quick-start-grid label { display: grid; gap: 7px; color: var(--muted); font-size: .85rem; }
-.quick-start-grid input { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 11px 9px; color: #222; background: #fff; }
+.quick-start-grid input, .quick-start-grid select { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 6px; padding: 11px 9px; color: #222; background: #fff; }
+.quick-start-grid select { appearance: auto; }
+.quick-custom-minutes { margin-top: 7px; }
 .quick-start-grid input:focus { border-color: var(--teal); outline: 2px solid rgba(0,0,0,.12); }
 .quick-panel .large-action { width: 100%; margin-top: 16px; }
 .quick-panel .form-message { margin: 12px 0 0; }

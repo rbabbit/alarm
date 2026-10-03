@@ -92,8 +92,70 @@
         <div class="quick-content">
           <section class="quick-panel">
             <div class="quick-start-grid">
-              <label>Text<input id="quick-label" type="text" placeholder="Pizza done" /></label>
-              <label>Minutes<input id="quick-minutes" type="number" min="0" max="1440" value="25" /></label>
+              <label>Timer name<input id="quick-label" type="text" placeholder="What is this timer for?" /></label>
+              <label>Minutes<select id="quick-minutes" aria-label="Timer minutes">
+                <option value="1">1 minute</option>
+                <option value="2">2 minutes</option>
+                <option value="3">3 minutes</option>
+                <option value="4">4 minutes</option>
+                <option value="5">5 minutes</option>
+                <option value="6">6 minutes</option>
+                <option value="7">7 minutes</option>
+                <option value="8">8 minutes</option>
+                <option value="9">9 minutes</option>
+                <option value="10">10 minutes</option>
+                <option value="11">11 minutes</option>
+                <option value="12">12 minutes</option>
+                <option value="13">13 minutes</option>
+                <option value="14">14 minutes</option>
+                <option value="15">15 minutes</option>
+                <option value="16">16 minutes</option>
+                <option value="17">17 minutes</option>
+                <option value="18">18 minutes</option>
+                <option value="19">19 minutes</option>
+                <option value="20">20 minutes</option>
+                <option value="21">21 minutes</option>
+                <option value="22">22 minutes</option>
+                <option value="23">23 minutes</option>
+                <option value="24">24 minutes</option>
+                <option value="25" selected>25 minutes</option>
+                <option value="26">26 minutes</option>
+                <option value="27">27 minutes</option>
+                <option value="28">28 minutes</option>
+                <option value="29">29 minutes</option>
+                <option value="30">30 minutes</option>
+                <option value="31">31 minutes</option>
+                <option value="32">32 minutes</option>
+                <option value="33">33 minutes</option>
+                <option value="34">34 minutes</option>
+                <option value="35">35 minutes</option>
+                <option value="36">36 minutes</option>
+                <option value="37">37 minutes</option>
+                <option value="38">38 minutes</option>
+                <option value="39">39 minutes</option>
+                <option value="40">40 minutes</option>
+                <option value="41">41 minutes</option>
+                <option value="42">42 minutes</option>
+                <option value="43">43 minutes</option>
+                <option value="44">44 minutes</option>
+                <option value="45">45 minutes</option>
+                <option value="46">46 minutes</option>
+                <option value="47">47 minutes</option>
+                <option value="48">48 minutes</option>
+                <option value="49">49 minutes</option>
+                <option value="50">50 minutes</option>
+                <option value="51">51 minutes</option>
+                <option value="52">52 minutes</option>
+                <option value="53">53 minutes</option>
+                <option value="54">54 minutes</option>
+                <option value="55">55 minutes</option>
+                <option value="56">56 minutes</option>
+                <option value="57">57 minutes</option>
+                <option value="58">58 minutes</option>
+                <option value="59">59 minutes</option>
+                <option value="60">60 minutes</option>
+                <option value="custom">Custom…</option>
+              </select><input id="quick-custom-minutes" class="quick-custom-minutes" type="number" min="1" step="1" placeholder="Enter any number of minutes" hidden /></label>
               <label>Seconds<input id="quick-seconds" type="number" min="0" max="59" value="0" /></label>
             </div>
             <button id="start-quick-timer" class="large-action">Start timer</button>
