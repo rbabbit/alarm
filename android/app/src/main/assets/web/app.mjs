@@ -154,9 +154,7 @@ function escapeHtml(value) {
 function navMarkup(active) {
   return [
     ["quick", "◷", "Multi-Timer"], ["list", "☰", "Alarms"], ["counter", "◉", "Counter"], ["info", "☁", "Weather"]
-  ].map(([view, icon, label]) => view === "info"
-    ? `<span class="bottom-nav-item ${active === view ? "active" : ""}">${icon}<span>${label}</span></span>`
-    : `<button data-view="${view}" class="${active === view ? "active" : ""}">${icon}<span>${label}</span></button>`).join("");
+  ].map(([view, icon, label]) => `<button type="button" data-view="${view}" class="${active === view ? "active" : ""}">${icon}<span>${label}</span></button>`).join("");
 }
 
 const WEATHER_CODES = {
