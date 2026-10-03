@@ -22,6 +22,7 @@ import android.webkit.JavascriptInterface;
 import android.window.OnBackInvokedDispatcher;
 
 import androidx.annotation.Nullable;
+import androidx.core.view.WindowCompat;
 import androidx.webkit.WebViewAssetLoader;
 import androidx.webkit.WebViewClientCompat;
 
@@ -43,9 +44,10 @@ public final class MainActivity extends Activity {
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         webView = new WebView(this);
         webView.setBackgroundColor(Color.WHITE);
-        webView.setFitsSystemWindows(true);
+        webView.setFitsSystemWindows(false);
         setContentView(webView);
         getWindow().setStatusBarColor(Color.WHITE);
         getWindow().setNavigationBarColor(Color.WHITE);
@@ -91,10 +93,10 @@ public final class MainActivity extends Activity {
             }
             topInsetPx = topInset;
             bottomInsetPx = bottomInset;
-            // The WebView is edge-to-edge on current target SDKs. Reserve the
-            // status-bar space in the web app itself; keep only the bottom
-            // padding here for the navigation bar.
-            view.setPadding(view.getPaddingLeft(), 0, view.getPaddingRight(), bottomInset);
+            // The WebView is edge-to-edge on current target SDKs. Reserve both
+            // system-bar areas in the native view so every web screen starts
+            // below the Android status bar and ends above the navigation bar.
+            view.setPadding(view.getPaddingLeft(), topInset, view.getPaddingRight(), bottomInset);
             updateWebSafeArea();
             return insets;
         });
