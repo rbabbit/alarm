@@ -25,7 +25,6 @@ let weatherState = loadJson(WEATHER_KEY, { latitude: null, longitude: null, time
 let currentView = "list";
 let editingId = null;
 let draft = null;
-let openCounterSettingsId = null;
 let ringing = null;
 let ringStopTimer = null;
 const nextEvents = new Map();
@@ -366,13 +365,11 @@ function renderQuick() {
 
 function renderCounter() {
   const list = document.querySelector("#counter-list");
-  document.querySelector("#counter-total").textContent = String(counters.length);
   list.innerHTML = counters.length
     ? counters.map((counter) => `
       <article class="counter-card" data-counter-id="${escapeHtml(counter.id)}">
         <div class="counter-card-header">
           <label class="counter-name-field"><span class="sr-only">Counter name</span><input type="text" value="${escapeHtml(counter.name)}" data-counter-field="name" aria-label="Counter name" /></label>
-          <button type="button" class="counter-settings-button" data-counter-action="settings" aria-label="Settings for ${escapeHtml(counter.name)}">⚙</button>
           <button type="button" class="counter-delete" data-counter-action="delete" aria-label="Delete ${escapeHtml(counter.name)}">×</button>
         </div>
         <output class="counter-value" aria-live="polite">${counter.value.toLocaleString()}</output>
@@ -381,7 +378,6 @@ function renderCounter() {
           <button type="button" class="counter-reset" data-counter-action="reset">Reset</button>
           <button type="button" class="counter-step-button" data-counter-action="increment" aria-label="Increase ${escapeHtml(counter.name)}">+</button>
         </div>
-        <div class="counter-options ${openCounterSettingsId === counter.id ? "open" : ""}"><label>Step <input type="number" min="1" step="1" value="${counter.step}" data-counter-field="step" aria-label="Step amount" /></label><span>Saved automatically</span></div>
       </article>`).join("")
     : `<div class="empty-state">No counters yet.<br />Use + to create one.</div>`;
 }
@@ -413,7 +409,6 @@ function addCounter() {
 
 function deleteCounter(id) {
   counters = counters.filter((counter) => counter.id !== id);
-  openCounterSettingsId = null;
   saveCounters();
   renderCounter();
 }
@@ -841,10 +836,6 @@ document.querySelector("#counter-list").addEventListener("click", (event) => {
   if (!card) return;
   const id = card.dataset.counterId;
   if (button.dataset.counterAction === "delete") deleteCounter(id);
-  else if (button.dataset.counterAction === "settings") {
-    openCounterSettingsId = openCounterSettingsId === id ? null : id;
-    renderCounter();
-  }
   else changeCounter(id, button.dataset.counterAction);
 });
 
@@ -855,7 +846,6 @@ document.querySelector("#counter-list").addEventListener("change", (event) => {
   const current = counters.find((counter) => counter.id === card.dataset.counterId);
   if (!current) return;
   if (field.dataset.counterField === "name") updateCounter(current.id, { name: field.value });
-  if (field.dataset.counterField === "step") updateCounter(current.id, { step: Number(field.value) });
 });
 
 function updateAlarmInline(id, changes) {
