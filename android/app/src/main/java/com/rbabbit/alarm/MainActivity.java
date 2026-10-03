@@ -141,6 +141,7 @@ public final class MainActivity extends Activity {
             @Override
             public void onPageFinished(WebView view, String url) {
                 super.onPageFinished(view, url);
+                view.evaluateJavascript("document.documentElement.classList.add('native-android');", null);
                 updateWebSafeArea();
                 notifyWebState();
             }

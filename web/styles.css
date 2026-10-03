@@ -107,6 +107,7 @@ button { cursor: pointer; }
 .ringing-banner { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 14px 20px 0; padding: 16px; border: 1px solid #111; border-radius: 8px; color: #111; background: #fff; }
 .ringing-banner div:first-child { display: grid; gap: 4px; }
 .ringing-banner span { font-size: .85rem; opacity: .85; }
+.native-android .ringing-banner { display: none; }
 .ringing-actions button { border: 1px solid #111; border-radius: 8px; padding: 8px 10px; color: #111; background: #fff; }
 .simple-content { padding: 50px 26px; text-align: center; }
 .quick-screen { display: flex; flex-direction: column; height: calc(100vh - var(--native-top-inset, 0px)); min-height: 0; overflow: hidden; }
