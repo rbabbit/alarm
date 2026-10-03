@@ -38,6 +38,62 @@ function loadJson(key, fallback) {
 
 function saveJson(key, value) { localStorage.setItem(key, JSON.stringify(value)); }
 
+function nativeBridge() {
+  return window.AndroidAlarmBridge && typeof window.AndroidAlarmBridge.getState === "function"
+    ? window.AndroidAlarmBridge
+    : null;
+}
+
+function mergeHistoryLists(...lists) {
+  const byId = new Map();
+  for (const list of lists) {
+    for (const item of Array.isArray(list) ? list : []) {
+      if (item?.id) byId.set(item.id, item);
+    }
+  }
+  return [...byId.values()].sort((left, right) => Number(left.atMs || 0) - Number(right.atMs || 0)).slice(-MAX_HISTORY);
+}
+
+function syncNativeState() {
+  const bridge = nativeBridge();
+  if (!bridge || typeof bridge.syncState !== "function") return;
+  bridge.syncState(JSON.stringify({ alarms, history }));
+}
+
+window.applyNativeAlarmState = (stateJson) => {
+  try {
+    const state = JSON.parse(stateJson || "{}");
+    const nativeAlarms = Array.isArray(state.alarms) ? state.alarms : [];
+    if (nativeAlarms.length > 0 || alarms.length === 0) {
+      alarms = nativeAlarms.map((alarm) => createAlarm({ ...alarm, alarmType: "auto" }));
+      saveJson(ALARMS_KEY, alarms);
+    }
+    history = mergeHistoryLists(history, state.history);
+    saveJson(HISTORY_KEY, history);
+    render();
+  } catch {
+    // Native state is optional in browser mode; keep the last valid local state.
+  }
+};
+
+function hydrateNativeState() {
+  const bridge = nativeBridge();
+  if (!bridge) return;
+  try {
+    const state = JSON.parse(bridge.getState() || "{}");
+    const nativeAlarms = Array.isArray(state.alarms) ? state.alarms : [];
+    if (nativeAlarms.length > 0 || alarms.length === 0) {
+      alarms = nativeAlarms.map((alarm) => createAlarm({ ...alarm, alarmType: "auto" }));
+      saveJson(ALARMS_KEY, alarms);
+    }
+    history = mergeHistoryLists(history, state.history);
+    saveJson(HISTORY_KEY, history);
+    syncNativeState();
+  } catch {
+    // Browser mode remains usable if the Android bridge is unavailable.
+  }
+}
+
 function saveQuickTimers() {
   saveJson(QUICK_TIMERS_KEY, quickTimers.map(({ audioStarted, ...timer }) => timer));
 }
@@ -173,6 +229,7 @@ function renderEdit() {
   form.querySelector("#snooze-sequence").value = draft.snoozeSequenceMinutes.join(", ");
   form.querySelector("#after-snooze").value = draft.afterSnoozeExhausted;
   form.querySelector("#wake-screen").checked = draft.wakeScreen;
+  form.querySelector("#voice-stop-enabled").checked = draft.voiceStopEnabled;
   form.querySelector("#enabled").checked = draft.enabled;
   form.querySelector("#enabled-state").textContent = draft.enabled ? "ON" : "OFF";
   form.querySelector("#enabled").setAttribute("aria-checked", String(draft.enabled));
@@ -247,6 +304,7 @@ function addAlarmFromHistory(historyId) {
 
   alarms.push(restored);
   saveJson(ALARMS_KEY, alarms);
+  syncNativeState();
   showView("list");
 }
 
@@ -283,6 +341,7 @@ function addQuickHistory(timer, action) {
   history.push({ id: crypto.randomUUID(), alarmId: timer.id, name: timer.label, action, atMs: Date.now() });
   history = history.slice(-MAX_HISTORY);
   saveJson(HISTORY_KEY, history);
+  syncNativeState();
 }
 
 function startQuickTimer(durationSeconds, label) {
@@ -479,6 +538,7 @@ function readDraft() {
     snoozeSequenceMinutes: form.querySelector("#snooze-sequence").value.split(",").map((value) => Number(value.trim())).filter((value) => value > 0),
     afterSnoozeExhausted: form.querySelector("#after-snooze").value,
     wakeScreen: form.querySelector("#wake-screen").checked,
+    voiceStopEnabled: form.querySelector("#voice-stop-enabled").checked,
     enabled: form.querySelector("#enabled").checked
   });
 }
@@ -500,6 +560,7 @@ function saveDraft(event) {
     nextEvents.delete(draft.id);
     snoozeEvents.delete(draft.id);
     saveJson(ALARMS_KEY, alarms);
+    syncNativeState();
     setFormMessage("Saved");
     showView("list");
   } catch (error) { setFormMessage(error.message, "error"); }
@@ -515,6 +576,7 @@ function deleteCurrentAlarm() {
   if (!editingId) { showView("list"); return; }
   alarms = alarms.filter((alarm) => alarm.id !== editingId);
   saveJson(ALARMS_KEY, alarms);
+  syncNativeState();
   nextEvents.delete(editingId);
   snoozeEvents.delete(editingId);
   showView("list");
@@ -529,6 +591,7 @@ function addHistory(alarm, action) {
   history.push({ id: crypto.randomUUID(), alarmId: alarm.id, name: alarm.name, action, atMs: Date.now(), alarmSnapshot: JSON.parse(JSON.stringify(alarm)) });
   history = history.slice(-MAX_HISTORY);
   saveJson(HISTORY_KEY, history);
+  syncNativeState();
 }
 
 function localMidnight(date) { return new Date(date.getFullYear(), date.getMonth(), date.getDate()); }
@@ -653,6 +716,7 @@ function updateAlarmInline(id, changes) {
   const updated = validateAlarm({ ...current, ...changes });
   alarms = alarms.map((alarm) => alarm.id === id ? updated : alarm);
   saveJson(ALARMS_KEY, alarms);
+  syncNativeState();
   nextEvents.delete(id);
   snoozeEvents.delete(id);
 }
@@ -689,6 +753,7 @@ document.querySelector("#alarm-list").addEventListener("click", (event) => {
     const id = toggle.dataset.toggle;
     alarms = alarms.map((alarm) => alarm.id === id ? { ...alarm, enabled: !alarm.enabled } : alarm);
     saveJson(ALARMS_KEY, alarms);
+    syncNativeState();
     nextEvents.delete(id);
     snoozeEvents.delete(id);
     render();
@@ -780,6 +845,7 @@ document.querySelector("#test-sound").addEventListener("click", async () => {
 });
 
 setupNavigation();
+hydrateNativeState();
 document.addEventListener("pointerdown", primeAlarmAudio, { passive: true });
 document.addEventListener("keydown", primeAlarmAudio, { passive: true });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) primeAlarmAudio(); });

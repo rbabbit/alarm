@@ -20,6 +20,7 @@ export const DEFAULT_ALARM = Object.freeze({
   snoozeSequenceMinutes: [25, 15, 10, 5],
   afterSnoozeExhausted: "dismiss",
   wakeScreen: true,
+  voiceStopEnabled: true,
   enabled: false
 });
 

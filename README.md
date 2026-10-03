@@ -33,8 +33,8 @@ The browser's `file:` URL restrictions are intentionally avoided by using a loca
 
 ## Android Studio
 
-The first Android wrapper is in [`android/`](./android/). Open `C:\timerApp\android` in Android Studio to run the current web interface on an Android device or emulator.
+The Android wrapper is in [`android/`](./android). Open `C:\timerApp\android` in Android Studio to run it on a device or emulator. The wrapper mirrors enabled alarms into native exact-alarm delivery, handles reboot rescheduling and alarm notifications, and provides a native ringing screen with snooze and optional voice `STOP` disable behavior.
 
 ## Important boundary
 
-The web app is a prototype and control surface. Reliable Android alarms, lock-screen behavior, exact scheduling, reboot recovery, and voice stop require Android-native integration documented in the research notes.
+The browser app remains a control surface and fallback; native background delivery is provided by the Android project. Exact alarms, notifications, full-screen ringing, microphone access, and voice recognition remain subject to the permissions and OS policies documented in the research notes.
