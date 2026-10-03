@@ -70,7 +70,10 @@ public final class MainActivity extends Activity {
             }
             topInsetPx = topInset;
             bottomInsetPx = bottomInset;
-            view.setPadding(view.getPaddingLeft(), topInset, view.getPaddingRight(), bottomInset);
+            // The WebView is edge-to-edge on current target SDKs. Reserve the
+            // status-bar space in the web app itself; keep only the bottom
+            // padding here for the navigation bar.
+            view.setPadding(view.getPaddingLeft(), 0, view.getPaddingRight(), bottomInset);
             updateWebSafeArea();
             return insets;
         });

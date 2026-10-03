@@ -3,7 +3,7 @@
 body { margin: 0; min-height: 100vh; background: #f4f4f4; }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
-.app-shell { width: min(100%, 620px); min-height: 100vh; margin: 0 auto; background: #f7f7f7; box-shadow: 0 0 36px rgba(0,0,0,.08); }
+.app-shell { width: min(100%, 620px); min-height: 100vh; margin: 0 auto; padding-top: var(--native-top-inset, 0px); background: #f7f7f7; box-shadow: 0 0 36px rgba(0,0,0,.08); }
 .screen { min-height: 100dvh; padding-bottom: calc(92px + var(--safe-bottom)); position: relative; }
 .hidden { display: none !important; }
 .app-bar { min-height: 96px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 22px 26px; color: #111; border-bottom: 1px solid var(--line); background: #fff; }
