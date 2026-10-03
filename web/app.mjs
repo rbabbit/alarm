@@ -8,6 +8,7 @@ const COUNTERS_KEY = "timer-app.counters.v1";
 const WEATHER_KEY = "timer-app.weather.v3";
 const OPEN_METEO_ENDPOINT = "https://api.open-meteo.com/v1/forecast";
 const MAX_QUICK_TIMERS = 10;
+const MAX_CUSTOM_MINUTES = 10_000;
 const MAX_HISTORY = 100;
 const alarmAudio = new AlarmAudio();
 
@@ -439,6 +440,7 @@ function addQuickHistory(timer, action) {
 function startQuickTimer(durationSeconds, label) {
   if (quickTimers.length >= MAX_QUICK_TIMERS) return setQuickMessage("You already have 10 timers running.", "error");
   if (!Number.isInteger(durationSeconds) || durationSeconds <= 0) return setQuickMessage("Enter a duration longer than zero.", "error");
+  if (durationSeconds > MAX_CUSTOM_MINUTES * 60) return setQuickMessage("A timer cannot exceed 10,000 minutes.", "error");
   const timer = { id: `quick-${crypto.randomUUID()}`, label: label.trim() || "Timer", totalSeconds: durationSeconds, remainingSeconds: durationSeconds, endsAtMs: Date.now() + durationSeconds * 1000, state: "running", snoozeCount: 0 };
   quickTimers.unshift(timer);
   saveQuickTimers();
@@ -812,6 +814,10 @@ document.querySelector("#quick-minutes").addEventListener("change", (event) => {
 });
 document.querySelector("#start-quick-timer").addEventListener("click", () => {
   const minutes = selectedQuickMinutes();
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > MAX_CUSTOM_MINUTES) {
+    setQuickMessage("Custom timer must be between 1 and 10,000 minutes.", "error");
+    return;
+  }
   startQuickTimer(Math.round(minutes * 60), document.querySelector("#quick-label").value);
 });
 
