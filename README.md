@@ -1,6 +1,8 @@
-# Timer App
+# Kala Time Alarm
 
 Web-first foundation for a complex timer, alarm, recurrence, and snooze application.
+
+Play Store title: **Kala Time – Alarm Clock**
 
 ## Current status
 
@@ -37,4 +39,4 @@ The Android wrapper is in [`android/`](./android). Open `C:\timerApp\android` in
 
 ## Important boundary
 
-The browser app remains a control surface and fallback; native background delivery is provided by the Android project. Exact alarms, notifications, full-screen ringing, microphone access, and voice recognition remain subject to the permissions and OS policies documented in the research notes.
+The browser app remains a control surface and fallback; native background delivery is provided by the Android project. Exact alarms, notifications, and full-screen ringing remain subject to the permissions and OS policies documented in the research notes.

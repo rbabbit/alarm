@@ -16,5 +16,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Alarm"
+rootProject.name = "Kala Time Alarm"
 include(":app")
