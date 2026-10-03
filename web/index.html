@@ -36,7 +36,7 @@
         <form id="alarm-form" class="alarm-form">
           <section class="form-card">
             <h2>Number of alarms</h2>
-            <div class="segmented" id="frequency-choice"><button type="button" data-frequency="several" class="selected">Several times a day</button><button type="button" data-frequency="once">Once a day</button></div>
+            <div class="segmented" id="frequency-choice"><button type="button" data-frequency="several" class="selected">Repeat Alarm</button><button type="button" data-frequency="once">Single Alarm</button></div>
           </section>
 
           <section class="form-card form-row-link">
@@ -49,9 +49,8 @@
           </section>
 
           <section class="form-card">
-            <div class="field-row"><label for="start-time">Alarm time range</label><span class="field-help">Start and end</span></div>
-            <div class="time-range"><input id="start-time" type="time" min="00:00" max="23:59" step="60" aria-label="Start time, 24-hour clock" required /><span>~</span><input id="end-time" type="time" min="00:00" max="23:59" step="60" aria-label="End time, 24-hour clock" required /></div>
-            <div id="once-time-note" class="field-help hidden">Once-a-day alarms use the start time.</div>
+            <div class="field-row"><label id="time-range-label" for="start-time">Alarm time range</label><span id="time-range-help" class="field-help">Start and end</span></div>
+            <div id="time-range" class="time-range"><input id="start-time" type="time" min="00:00" max="23:59" step="60" aria-label="Start time, 24-hour clock" required /><span id="time-range-separator" aria-hidden="true">~</span><input id="end-time" type="time" min="00:00" max="23:59" step="60" aria-label="End time, 24-hour clock" required /></div>
           </section>
 
           <section id="interval-card" class="form-card">

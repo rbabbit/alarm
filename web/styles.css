@@ -79,6 +79,7 @@ button { cursor: pointer; }
 .field-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .field-help { color: var(--muted); font-size: .9rem; }
 .time-range { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
+.time-range.single { grid-template-columns: 1fr; }
 .time-range input { font-size: 1.4rem !important; }
 .text-button { border: 0; color: #111; background: transparent; font-weight: 700; }
 .preview-list { display: grid; gap: 8px; max-height: 210px; overflow: auto; color: var(--muted); }
@@ -204,6 +205,7 @@ button { cursor: pointer; }
   .field-row { gap: 8px; }
   .field-help { font-size: .74rem; }
   .time-range { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 6px; }
+  .time-range.single { grid-template-columns: 1fr; }
   .time-range input { font-size: 1rem !important; }
   .interval-input { margin-top: 8px; }
   .interval-input input { padding: 6px 0; font-size: 1rem; }

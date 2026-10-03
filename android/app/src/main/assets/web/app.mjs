@@ -216,6 +216,25 @@ function nextSnoozeMinutes(alarm, snoozeIndex) {
   return null;
 }
 
+function syncFrequencyFields() {
+  const isSingle = draft?.frequency === "once";
+  const timeRange = document.querySelector("#time-range");
+  const timeRangeLabel = document.querySelector("#time-range-label");
+  const timeRangeHelp = document.querySelector("#time-range-help");
+  const separator = document.querySelector("#time-range-separator");
+  const endTime = document.querySelector("#end-time");
+  if (!timeRange || !timeRangeLabel || !timeRangeHelp || !separator || !endTime) return;
+
+  timeRange.classList.toggle("single", isSingle);
+  timeRangeLabel.textContent = isSingle ? "Alarm time" : "Alarm time range";
+  timeRangeHelp.textContent = isSingle ? "Start" : "Start and end";
+  separator.classList.toggle("hidden", isSingle);
+  endTime.classList.toggle("hidden", isSingle);
+  endTime.disabled = isSingle;
+  endTime.required = !isSingle;
+  document.querySelector("#interval-card").classList.toggle("hidden", isSingle);
+}
+
 function renderEdit() {
   if (!draft) return;
   const form = document.querySelector("#alarm-form");
@@ -238,8 +257,7 @@ function renderEdit() {
   form.querySelector("#enabled").setAttribute("aria-checked", String(draft.enabled));
   syncSwitchStates(form);
   document.querySelectorAll("#frequency-choice button").forEach((button) => button.classList.toggle("selected", button.dataset.frequency === draft.frequency));
-  document.querySelector("#interval-card").classList.toggle("hidden", draft.frequency === "once");
-  document.querySelector("#once-time-note").classList.toggle("hidden", draft.frequency !== "once");
+  syncFrequencyFields();
   document.querySelector("#repeat-days").innerHTML = DAY_CODES.map((day) => `<button type="button" data-day="${day}" class="${draft.repeatDays.includes(day) ? "selected" : ""}" aria-label="${DAY_LABELS[day]}">${day[0]}</button>`).join("");
   renderPreview();
 }
