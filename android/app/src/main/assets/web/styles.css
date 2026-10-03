@@ -19,7 +19,7 @@ button { cursor: pointer; }
 .alarm-list::-webkit-scrollbar-thumb { border: 2px solid #f1f1f1; border-radius: 8px; background: #111; }
 .list-add-bar { display: flex; flex: 0 0 104px; align-items: center; padding: 8px 20px; }
 .alarm-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto auto; align-items: center; column-gap: 14px; row-gap: 10px; min-width: 0; padding: 16px 18px; border: 1px solid #ececec; border-radius: 12px; background: var(--card); box-shadow: 0 4px 14px rgba(0,0,0,.06); }
-.alarm-time-row { grid-column: 1 / -1; grid-row: 1; min-width: 0; }
+.alarm-time-row { grid-column: 1; grid-row: 1; min-width: 0; }
 .alarm-details-row { display: flex; grid-column: 1; grid-row: 2; align-items: center; min-width: 0; gap: 14px; }
 .alarm-compact-row strong { min-width: 0; overflow: hidden; color: #111; font-size: 1.08rem; font-weight: 700; text-overflow: ellipsis; }
 .inline-input, .inline-time-button, .inline-interval input { min-width: 0; border: 0; border-bottom: 1px solid transparent; border-radius: 0; padding: 2px 0; color: #111; background: transparent; font: inherit; font-size: 1.08rem; outline: 0; }
@@ -42,9 +42,9 @@ button { cursor: pointer; }
 .alarm-day-strip span, .alarm-day-strip button { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid var(--line); border-radius: 50%; padding: 0; color: #9a9fa2; background: #fff; font-size: .82rem; }
 .alarm-day-strip button { cursor: pointer; }
 .alarm-day-strip span.selected, .alarm-day-strip button.selected { border-color: #111; color: #fff; background: #111; }
-.alarm-card .alarm-status { display: flex; grid-column: 2; grid-row: 2; align-items: center; gap: 8px; color: var(--muted); font-size: .9rem; font-weight: 700; }
+.alarm-card .alarm-status { display: flex; grid-column: 2; grid-row: 1; align-items: center; justify-content: flex-end; gap: 8px; color: var(--muted); font-size: .9rem; font-weight: 700; }
 .alarm-card .alarm-status button { margin-top: 0; }
-.advanced-button { border: 0; padding: 2px; color: var(--muted); background: transparent; font-size: 1.05rem; line-height: 1; }
+.advanced-button { display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%; padding: 0; color: var(--muted); background: transparent; font-size: 1.45rem; line-height: 1; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 .switch { display: inline-flex; align-items: center; gap: 6px; min-width: 78px; height: 34px; border: 1px solid #aaa; border-radius: 999px; padding: 3px 5px 3px 8px; color: #777; background: #fff; cursor: pointer; }
 .switch-label { min-width: 22px; font-size: .72rem; font-weight: 800; text-align: center; }

@@ -714,8 +714,6 @@ document.querySelector("#alarm-list").addEventListener("click", (event) => {
     return;
   }
   if (event.target.closest("[data-inline-field], [data-time-picker]")) return;
-  const card = event.target.closest("[data-edit]");
-  if (card) openEditor(card.dataset.edit);
 });
 
 document.addEventListener("click", (event) => {
