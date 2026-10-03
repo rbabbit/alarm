@@ -233,7 +233,6 @@ function renderEdit() {
   form.querySelector("#snooze-sequence").value = draft.snoozeSequenceMinutes.join(", ");
   form.querySelector("#after-snooze").value = draft.afterSnoozeExhausted;
   form.querySelector("#wake-screen").checked = draft.wakeScreen;
-  form.querySelector("#voice-stop-enabled").checked = draft.voiceStopEnabled;
   form.querySelector("#enabled").checked = draft.enabled;
   form.querySelector("#enabled-state").textContent = draft.enabled ? "ON" : "OFF";
   form.querySelector("#enabled").setAttribute("aria-checked", String(draft.enabled));
@@ -546,7 +545,6 @@ function readDraft() {
     snoozeSequenceMinutes: form.querySelector("#snooze-sequence").value.split(",").map((value) => Number(value.trim())).filter((value) => value > 0),
     afterSnoozeExhausted: form.querySelector("#after-snooze").value,
     wakeScreen: form.querySelector("#wake-screen").checked,
-    voiceStopEnabled: form.querySelector("#voice-stop-enabled").checked,
     enabled: form.querySelector("#enabled").checked
   });
 }

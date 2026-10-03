@@ -177,13 +177,11 @@ public final class MainActivity extends Activity {
             JSONObject state = new JSONObject(stateJson == null ? "{}" : stateJson);
             JSONArray alarms = state.optJSONArray("alarms");
             boolean hasEnabledAlarm = false;
-            boolean needsVoice = false;
             if (alarms != null) {
                 for (int index = 0; index < alarms.length(); index += 1) {
                     JSONObject alarm = alarms.optJSONObject(index);
                     if (alarm == null || !alarm.optBoolean("enabled", false)) continue;
                     hasEnabledAlarm = true;
-                    needsVoice |= alarm.optBoolean("voiceStopEnabled", true);
                 }
             }
             if (!hasEnabledAlarm) return;
@@ -215,9 +213,6 @@ public final class MainActivity extends Activity {
             java.util.ArrayList<String> missing = new java.util.ArrayList<>();
             if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                 missing.add(Manifest.permission.POST_NOTIFICATIONS);
-            }
-            if (needsVoice && Build.VERSION.SDK_INT >= 23 && checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-                missing.add(Manifest.permission.RECORD_AUDIO);
             }
             if (!missing.isEmpty()) {
                 appPermissionsRequested = true;

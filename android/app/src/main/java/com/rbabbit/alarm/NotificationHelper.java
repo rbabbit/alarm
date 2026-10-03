@@ -84,9 +84,7 @@ public final class NotificationHelper {
                 : new Notification.Builder(context).setPriority(Notification.PRIORITY_MAX);
         builder.setSmallIcon(android.R.drawable.ic_dialog_alert)
                 .setContentTitle(name)
-                .setContentText(alarm.optBoolean("voiceStopEnabled", true)
-                        ? "Alarm ringing · Say STOP to disable"
-                        : "Alarm ringing")
+                .setContentText("Alarm ringing")
                 .setCategory(Notification.CATEGORY_ALARM)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .setOngoing(true)

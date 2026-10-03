@@ -21,13 +21,12 @@ import androidx.core.content.ContextCompat;
 
 import org.json.JSONObject;
 
-/** Visible, lock-screen-safe alarm screen with voice STOP support. */
+/** Visible, lock-screen-safe alarm screen. */
 public final class RingingActivity extends Activity {
     public static final String ACTION_FINISH = "com.rbabbit.alarm.ACTION_FINISH_RINGING";
     private JSONObject alarm;
     private String alarmId;
     private int snoozeIndex;
-    private TextView voiceStatus;
 
     private final BroadcastReceiver finishReceiver = new BroadcastReceiver() {
         @Override
@@ -85,17 +84,6 @@ public final class RingingActivity extends Activity {
         ringingParams.topMargin = 32;
         root.addView(ringing, ringingParams);
 
-        voiceStatus = new TextView(this);
-        voiceStatus.setText(alarm.optBoolean("voiceStopEnabled", true)
-                ? "Voice STOP is handled by the alarm service"
-                : "");
-        voiceStatus.setTextColor(Color.DKGRAY);
-        voiceStatus.setTextSize(18);
-        voiceStatus.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams statusParams = new LinearLayout.LayoutParams(-1, -2);
-        statusParams.topMargin = 18;
-        root.addView(voiceStatus, statusParams);
-
         LinearLayout actions = new LinearLayout(this);
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.setGravity(Gravity.CENTER);
@@ -106,7 +94,7 @@ public final class RingingActivity extends Activity {
         Button stop = new Button(this);
         stop.setText("Stop");
         stop.setOnClickListener(view -> {
-            AlarmActionReceiver.performStop(this, alarmId, false);
+            AlarmActionReceiver.performStop(this, alarmId);
             finish();
         });
         actions.addView(stop, new LinearLayout.LayoutParams(0, 120, 1));

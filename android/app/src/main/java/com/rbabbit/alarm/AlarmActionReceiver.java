@@ -18,21 +18,15 @@ public final class AlarmActionReceiver extends BroadcastReceiver {
             int snoozeIndex = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_INDEX, 0);
             performSnooze(context, alarmId, snoozeIndex);
         } else if (ACTION_STOP.equals(intent.getAction())) {
-            performStop(context, alarmId, false);
+            performStop(context, alarmId);
         }
     }
 
-    public static void performStop(Context context, String alarmId, boolean disableAlarm) {
+    public static void performStop(Context context, String alarmId) {
         JSONObject alarm = AlarmStore.findAlarm(context, alarmId);
         if (alarm == null) return;
-        if (disableAlarm) {
-            AlarmStore.setEnabled(context, alarmId, false);
-            AlarmScheduler.cancelAlarm(context, alarmId);
-            AlarmStore.appendHistory(context, alarm, "voice stopped and disabled");
-        } else {
-            AlarmScheduler.scheduleNextBaseline(context, alarm, System.currentTimeMillis());
-            AlarmStore.appendHistory(context, alarm, "stopped");
-        }
+        AlarmScheduler.scheduleNextBaseline(context, alarm, System.currentTimeMillis());
+        AlarmStore.appendHistory(context, alarm, "stopped");
         stopRinging(context, alarmId);
     }
 
@@ -41,7 +35,7 @@ public final class AlarmActionReceiver extends BroadcastReceiver {
         if (alarm == null) return;
         int minutes = AlarmScheduler.nextSnoozeMinutes(alarm, snoozeIndex);
         if (minutes <= 0) {
-            performStop(context, alarmId, false);
+            performStop(context, alarmId);
             return;
         }
         AlarmScheduler.scheduleSnooze(context, alarm, minutes, snoozeIndex + 1);
