@@ -16,7 +16,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   snoozeSequenceMinutes: [25, 15, 10, 5],
   afterSnoozeExhausted: "dismiss",
   sound: "classic",
-  volume: 0.8,
+  volume: 1,
   gradualVolume: false,
   vibration: true,
   vibrationPattern: "standard"

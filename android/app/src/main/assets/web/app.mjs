@@ -436,7 +436,7 @@ async function ringQuickTimer(timer) {
   const audio = new AlarmAudio();
   quickAudio.set(timer.id, audio);
   addQuickHistory(timer, "ringing");
-  await audio.start({ sound: "classic", volume: 0.8, gradualVolume: false, vibration: true, vibrationPattern: "standard" });
+  await audio.start({ sound: "classic", volume: 1, gradualVolume: false, vibration: true, vibrationPattern: "standard" });
 }
 
 function quickTimerTick() {

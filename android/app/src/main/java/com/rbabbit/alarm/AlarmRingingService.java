@@ -49,6 +49,15 @@ public final class AlarmRingingService extends Service {
             {ToneGenerator.TONE_PROP_BEEP2, 90}, {SILENCE, 80},
             {ToneGenerator.TONE_PROP_BEEP2, 90}, {SILENCE, 300}
     };
+    private static final int[][] WAKE_UP_PATTERN = {
+            {ToneGenerator.TONE_PROP_BEEP2, 360}, {SILENCE, 80},
+            {ToneGenerator.TONE_PROP_ACK, 360}, {SILENCE, 80},
+            {ToneGenerator.TONE_PROP_BEEP2, 360}, {SILENCE, 400}
+    };
+    private static final int[][] LOUD_ALARM_PATTERN = {
+            {ToneGenerator.TONE_PROP_ACK, 600}, {SILENCE, 90},
+            {ToneGenerator.TONE_PROP_BEEP2, 600}, {SILENCE, 280}
+    };
 
     private final Runnable timeout = () -> {
         timedOut = true;
@@ -67,7 +76,7 @@ public final class AlarmRingingService extends Service {
         if (alarm == null) return START_NOT_STICKY;
         NotificationHelper.createChannel(this);
         startForegroundCompat(NotificationHelper.buildAlarmNotification(this, alarm, occurrence, snoozeIndex));
-        playAlarm(alarm.optString("sound", "classic"), alarm.optDouble("volume", 0.8));
+        playAlarm(alarm.optString("sound", "classic"), alarm.optDouble("volume", 1.0));
         handler.removeCallbacks(timeout);
         handler.postDelayed(timeout, Math.max(1, alarm.optInt("durationSeconds", 60)) * 1000L);
         return START_NOT_STICKY;
@@ -115,6 +124,8 @@ public final class AlarmRingingService extends Service {
         if ("pulse".equals(sound)) return PULSE_PATTERN;
         if ("chime".equals(sound)) return CHIME_PATTERN;
         if ("digital".equals(sound)) return DIGITAL_PATTERN;
+        if ("wake-up".equals(sound)) return WAKE_UP_PATTERN;
+        if ("loud-alarm".equals(sound)) return LOUD_ALARM_PATTERN;
         return CLASSIC_PATTERN;
     }
 

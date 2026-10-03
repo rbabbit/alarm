@@ -13,7 +13,7 @@ export const DEFAULT_ALARM = Object.freeze({
   intervalMinutes: 60,
   alarmType: "auto",
   sound: "classic",
-  volume: 0.8,
+  volume: 1,
   durationSeconds: 60,
   createHistory: true,
   snoozeEnabled: true,

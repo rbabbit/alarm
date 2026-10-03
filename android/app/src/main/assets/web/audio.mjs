@@ -3,7 +3,9 @@ const PATTERNS = {
   gentle: { frequencies: [523.25, 659.25, 783.99], onMs: 280, gapMs: 100, cycleMs: 1_200 },
   pulse: { frequencies: [1_046.5], onMs: 160, gapMs: 90, cycleMs: 620 },
   chime: { frequencies: [659.25, 783.99, 1_046.5], onMs: 230, gapMs: 90, cycleMs: 1_350 },
-  digital: { frequencies: [1_046.5, 1_046.5], onMs: 90, gapMs: 80, cycleMs: 560 }
+  digital: { frequencies: [1_046.5, 1_046.5], onMs: 90, gapMs: 80, cycleMs: 560 },
+  "wake-up": { frequencies: [880, 1_046.5, 880], onMs: 360, gapMs: 80, cycleMs: 1_300, waveform: "square" },
+  "loud-alarm": { frequencies: [659.25, 1_046.5], onMs: 600, gapMs: 90, cycleMs: 1_480, waveform: "sawtooth" }
 };
 
 const VIBRATION = {
@@ -26,12 +28,12 @@ export class AlarmAudio {
     if (this.context.state === "suspended") await this.context.resume();
   }
 
-  async playPulse(frequency, durationMs, volume) {
+  async playPulse(frequency, durationMs, volume, waveform = "sine") {
     await this.ensureContext();
     const oscillator = this.context.createOscillator();
     const gain = this.context.createGain();
     const now = this.context.currentTime;
-    oscillator.type = "sine";
+    oscillator.type = waveform;
     oscillator.frequency.value = frequency;
     gain.gain.setValueAtTime(0.0001, now);
     gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, volume), now + 0.015);
@@ -53,7 +55,7 @@ export class AlarmAudio {
       for (let index = 0; index < pattern.frequencies.length; index += 1) {
         await new Promise((resolve) => setTimeout(resolve, index * (pattern.onMs + pattern.gapMs)));
         if (this.timer === null) return;
-        await this.playPulse(pattern.frequencies[index], pattern.onMs, volume);
+        await this.playPulse(pattern.frequencies[index], pattern.onMs, volume, pattern.waveform);
       }
     };
     this.timer = setInterval(() => { void tick(); }, pattern.cycleMs);
