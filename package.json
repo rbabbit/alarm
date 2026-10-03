@@ -1,0 +1,11 @@
+{
+  "name": "timer-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Research-driven web-first foundation for a complex timer and alarm application.",
+  "scripts": {
+    "test": "node --test",
+    "test:watch": "node --test --watch"
+  }
+}
