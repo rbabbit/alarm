@@ -209,7 +209,7 @@ function renderList() {
         ${alarm.frequency === "several" ? `<label class="inline-interval"><span class="sr-only">Interval</span><input type="number" min="1" max="1440" step="1" value="${alarm.intervalMinutes}" data-inline-field="intervalMinutes" aria-label="Alarm interval in minutes" /><span class="interval-unit">min</span></label>` : `<span class="alarm-mode">${escapeHtml(formatDays(alarm.repeatDays))}</span>`}
       </div>
       <div class="alarm-day-strip" aria-label="${escapeHtml(formatDays(alarm.repeatDays))}">${DAY_CODES.map((day) => `<button type="button" class="${alarm.repeatDays.includes(day) ? "selected" : ""}" data-inline-day="${day}" aria-label="${DAY_LABELS[day]}" aria-pressed="${alarm.repeatDays.includes(day)}">${day[0]}</button>`).join("")}</div>
-      <div class="alarm-status"><button type="button" class="advanced-button" data-advanced="${alarm.id}" aria-label="Advanced settings for ${escapeHtml(alarm.name)}">⚙</button><button type="button" class="switch ${alarm.enabled ? "on" : ""}" data-toggle="${alarm.id}" role="switch" aria-checked="${alarm.enabled}" aria-label="Toggle ${escapeHtml(alarm.name)}"><span class="switch-label">${alarm.enabled ? "ON" : "OFF"}</span><span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span></button></div>
+      <div class="alarm-status"><button type="button" class="advanced-button" data-advanced="${alarm.id}" aria-label="Advanced settings for ${escapeHtml(alarm.name)}">⚙</button><label class="alarm-switch"><span class="alarm-switch-label">${alarm.enabled ? "ON" : "OFF"}</span><span class="alarm-switch-control"><input type="checkbox" class="alarm-switch-input" data-toggle="${alarm.id}" role="switch" aria-checked="${alarm.enabled}" aria-label="Toggle ${escapeHtml(alarm.name)}" ${alarm.enabled ? "checked" : ""} /><span class="alarm-switch-track" aria-hidden="true"><span class="alarm-switch-thumb"></span></span></span></label></div>
     </article>`).join("");
 }
 
@@ -886,17 +886,6 @@ document.querySelector("#alarm-list").addEventListener("click", (event) => {
     renderList();
     return;
   }
-  const toggle = event.target.closest("[data-toggle]");
-  if (toggle) {
-    const id = toggle.dataset.toggle;
-    alarms = alarms.map((alarm) => alarm.id === id ? { ...alarm, enabled: !alarm.enabled } : alarm);
-    saveJson(ALARMS_KEY, alarms);
-    syncNativeState();
-    nextEvents.delete(id);
-    snoozeEvents.delete(id);
-    render();
-    return;
-  }
   const advanced = event.target.closest("[data-advanced]");
   if (advanced) {
     openEditor(advanced.dataset.advanced);
@@ -917,6 +906,18 @@ document.querySelector("#alarm-list").addEventListener("click", (event) => {
     return;
   }
   if (event.target.closest("[data-inline-field], [data-time-picker]")) return;
+});
+
+document.querySelector("#alarm-list").addEventListener("change", (event) => {
+  const toggle = event.target.closest("input[data-toggle]");
+  if (!toggle) return;
+  const id = toggle.dataset.toggle;
+  alarms = alarms.map((alarm) => alarm.id === id ? { ...alarm, enabled: toggle.checked } : alarm);
+  saveJson(ALARMS_KEY, alarms);
+  syncNativeState();
+  nextEvents.delete(id);
+  snoozeEvents.delete(id);
+  render();
 });
 
 document.addEventListener("click", (event) => {
