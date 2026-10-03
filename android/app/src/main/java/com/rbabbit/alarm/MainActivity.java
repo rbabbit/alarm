@@ -288,6 +288,16 @@ public final class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void stopQuickTimer(String timerId) {
+            QuickTimerActionReceiver.stop(MainActivity.this, timerId);
+        }
+
+        @JavascriptInterface
+        public void snoozeQuickTimer(String timerId) {
+            QuickTimerActionReceiver.snooze(MainActivity.this, timerId);
+        }
+
+        @JavascriptInterface
         public boolean canScheduleExactAlarms() {
             return AlarmScheduler.canScheduleExactAlarms(MainActivity.this);
         }

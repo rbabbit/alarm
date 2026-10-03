@@ -20,15 +20,17 @@ public final class QuickTimerActionReceiver extends BroadcastReceiver {
 
     public static void stop(Context context, String timerId) {
         JSONObject timer = QuickTimerStore.remove(context, timerId);
-        if (timer == null) return;
         QuickTimerScheduler.cancel(context, timerId);
-        AlarmStore.appendHistory(context, timer, "stopped");
+        if (timer != null) AlarmStore.appendHistory(context, timer, "stopped");
         stopRinging(context, timerId);
     }
 
     public static void snooze(Context context, String timerId) {
         JSONObject timer = QuickTimerStore.find(context, timerId);
-        if (timer == null) return;
+        if (timer == null) {
+            stopRinging(context, timerId);
+            return;
+        }
         try {
             timer.put("state", "running");
             timer.put("snoozeCount", timer.optInt("snoozeCount", 0) + 1);

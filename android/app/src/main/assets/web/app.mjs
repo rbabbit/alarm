@@ -80,7 +80,7 @@ window.applyNativeAlarmState = (stateJson) => {
     }
     history = mergeHistoryLists(history, state.history);
     saveJson(HISTORY_KEY, history);
-    if (Array.isArray(state.quickTimers) && (state.quickTimers.length > 0 || quickTimers.length === 0)) {
+    if (Array.isArray(state.quickTimers)) {
       quickTimers = state.quickTimers.map((timer) => ({ ...timer, audioStarted: false }));
       saveJson(QUICK_TIMERS_KEY, state.quickTimers);
     }
@@ -102,7 +102,7 @@ function hydrateNativeState() {
     }
     history = mergeHistoryLists(history, state.history);
     saveJson(HISTORY_KEY, history);
-    if (Array.isArray(state.quickTimers) && (state.quickTimers.length > 0 || quickTimers.length === 0)) {
+    if (Array.isArray(state.quickTimers)) {
       quickTimers = state.quickTimers.map((timer) => ({ ...timer, audioStarted: false }));
       saveJson(QUICK_TIMERS_KEY, state.quickTimers);
     }
@@ -354,8 +354,11 @@ function renderQuick() {
   document.querySelector("#start-quick-timer").disabled = activeCount >= MAX_QUICK_TIMERS;
 
   const timers = document.querySelector("#quick-timers");
-  timers.innerHTML = quickTimers.length
-    ? quickTimers.map((timer) => {
+  const visibleTimers = isNativeAndroid()
+    ? quickTimers.filter((timer) => timer.state !== "ringing")
+    : quickTimers;
+  timers.innerHTML = visibleTimers.length
+    ? visibleTimers.map((timer) => {
       const seconds = timer.state === "running" ? Math.max(0, Math.ceil((timer.endsAtMs - Date.now()) / 1000)) : timer.remainingSeconds;
       const action = timer.state === "running"
         ? `<button data-quick-action="pause" data-quick-id="${timer.id}">Pause</button>`
@@ -411,6 +414,14 @@ function setQuickMessage(message, kind = "info") {
 function stopQuickTimer(id, action = "stopped") {
   const timer = quickTimers.find((item) => item.id === id);
   if (!timer) return;
+  if (isNativeAndroid()) {
+    const bridge = nativeBridge();
+    if (typeof bridge.stopQuickTimer === "function") bridge.stopQuickTimer(id);
+    quickTimers = quickTimers.filter((item) => item.id !== id);
+    saveJson(QUICK_TIMERS_KEY, quickTimers);
+    renderQuick();
+    return;
+  }
   quickAudio.get(id)?.stop();
   quickAudio.delete(id);
   addQuickHistory(timer, action);
@@ -441,6 +452,17 @@ function resumeQuickTimer(id) {
 function snoozeQuickTimer(id) {
   const timer = quickTimers.find((item) => item.id === id);
   if (!timer || timer.state !== "ringing") return;
+  if (isNativeAndroid()) {
+    const bridge = nativeBridge();
+    if (typeof bridge.snoozeQuickTimer === "function") bridge.snoozeQuickTimer(id);
+    timer.state = "running";
+    timer.snoozeCount = Number(timer.snoozeCount || 0) + 1;
+    timer.remainingSeconds = 5 * 60;
+    timer.endsAtMs = Date.now() + timer.remainingSeconds * 1000;
+    saveJson(QUICK_TIMERS_KEY, quickTimers);
+    renderQuick();
+    return;
+  }
   quickAudio.get(id)?.stop();
   quickAudio.delete(id);
   timer.state = "running";
