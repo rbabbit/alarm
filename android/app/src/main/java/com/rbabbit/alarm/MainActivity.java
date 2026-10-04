@@ -973,7 +973,7 @@ public final class MainActivity extends Activity {
         for (String code : DAY_CODES) days.put(code);
         try {
             alarm.put("id", UUID.randomUUID().toString());
-            alarm.put("frequency", "several");
+            alarm.put("frequency", "once");
             alarm.put("repeatDays", days);
             alarm.put("startTime", "06:00");
             alarm.put("endTime", "18:00");
