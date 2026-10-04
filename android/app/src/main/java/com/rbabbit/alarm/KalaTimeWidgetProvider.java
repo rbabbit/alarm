@@ -1,5 +1,6 @@
 package com.rbabbit.alarm;
 
+import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
@@ -19,9 +20,32 @@ import java.util.Locale;
 public final class KalaTimeWidgetProvider extends AppWidgetProvider {
     private static final int OPEN_REQUEST = 4101;
     private static final int ADD_REQUEST = 4102;
+    private static final int CLOCK_REQUEST = 4103;
+    private static final String ACTION_REFRESH_CLOCK = "com.rbabbit.alarm.ACTION_REFRESH_WIDGET_CLOCK";
+
+    @Override
+    public void onEnabled(Context context) {
+        scheduleClockRefresh(context);
+    }
+
+    @Override
+    public void onDisabled(Context context) {
+        cancelClockRefresh(context);
+    }
+
+    @Override
+    public void onReceive(Context context, Intent intent) {
+        if (ACTION_REFRESH_CLOCK.equals(intent.getAction())) {
+            refresh(context);
+            scheduleClockRefresh(context);
+            return;
+        }
+        super.onReceive(context, intent);
+    }
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] widgetIds) {
+        scheduleClockRefresh(context);
         for (int widgetId : widgetIds) updateWidget(context, manager, widgetId);
     }
 
@@ -36,7 +60,14 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
 
     private static void updateWidget(Context context, AppWidgetManager manager, int widgetId) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_kala_time);
+        String currentDate = new SimpleDateFormat("EEEE, d MMMM", Locale.getDefault())
+                .format(new Date());
+        String currentTime = new SimpleDateFormat("HH:mm", Locale.getDefault())
+                .format(new Date());
         NextAlarm next = nextAlarm(context);
+        views.setTextViewText(R.id.widget_current_date, currentDate);
+        views.setTextViewText(R.id.widget_current_time, currentTime);
+        views.setTextViewText(R.id.widget_next_date, next.date);
         views.setTextViewText(R.id.widget_next_time, next.time);
         views.setTextViewText(R.id.widget_next_name, next.name);
 
@@ -72,16 +103,47 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
                 bestName = alarm.optString("name", "Alarm");
             }
         }
-        if (bestAt == Long.MAX_VALUE) return new NextAlarm("No enabled alarms", "Set an alarm in Kala Time");
-        String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(bestAt));
-        return new NextAlarm(time, bestName);
+        if (bestAt == Long.MAX_VALUE) {
+            return new NextAlarm("", "--:--", "Set an alarm in Kala Time");
+        }
+        Date nextDate = new Date(bestAt);
+        String date = new SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(nextDate);
+        String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(nextDate);
+        return new NextAlarm(date, time, bestName);
+    }
+
+    private static void scheduleClockRefresh(Context context) {
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (alarmManager == null) return;
+        long nextMinute = ((System.currentTimeMillis() / 60000L) + 1L) * 60000L;
+        alarmManager.setAndAllowWhileIdle(
+                AlarmManager.RTC,
+                nextMinute,
+                clockPendingIntent(context));
+    }
+
+    private static void cancelClockRefresh(Context context) {
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (alarmManager != null) alarmManager.cancel(clockPendingIntent(context));
+    }
+
+    private static PendingIntent clockPendingIntent(Context context) {
+        Intent intent = new Intent(context, KalaTimeWidgetProvider.class)
+                .setAction(ACTION_REFRESH_CLOCK);
+        return PendingIntent.getBroadcast(
+                context,
+                CLOCK_REQUEST,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     private static final class NextAlarm {
+        final String date;
         final String time;
         final String name;
 
-        NextAlarm(String time, String name) {
+        NextAlarm(String date, String time, String name) {
+            this.date = date;
             this.time = time;
             this.name = name;
         }
