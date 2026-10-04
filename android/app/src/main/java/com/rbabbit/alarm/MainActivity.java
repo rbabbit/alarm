@@ -56,6 +56,8 @@ public final class MainActivity extends Activity {
     private static final int LOCATION_REQUEST = 71;
     private static final int NOTIFICATION_REQUEST = 72;
     private static final long MAX_TIMER_MINUTES = 30L * 24L * 60L;
+    private static final String PREFS_NAME = "app_preferences";
+    private static final String EXACT_ALARM_PROMPT_SHOWN = "exact_alarm_prompt_shown";
     private static final String[] DAY_CODES = {"MO", "TU", "WE", "TH", "FR", "SA", "SU"};
     private static final String[] DAY_LABELS = {"M", "T", "W", "T", "F", "S", "S"};
     private static final int INK = Color.rgb(20, 20, 20);
@@ -96,7 +98,7 @@ public final class MainActivity extends Activity {
         exactAlarmAccess = AlarmScheduler.canScheduleExactAlarms(this);
         buildShell();
         showAlarms();
-        maybeRequestExactAlarmAccess();
+        maybeRequestExactAlarmAccess(false);
         if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_REQUEST);
         }
@@ -312,6 +314,7 @@ public final class MainActivity extends Activity {
         enabled.setOnCheckedChangeListener((button, checked) -> {
             AlarmStore.setEnabled(this, alarm.optString("id"), checked);
             AlarmScheduler.syncAll(this);
+            if (checked) maybeRequestExactAlarmAccess(true);
         });
         top.addView(enabled, new LinearLayout.LayoutParams(dp(92), dp(58)));
         card.addView(top);
@@ -476,7 +479,7 @@ public final class MainActivity extends Activity {
                 editingAlarm.put("enabled", enable.isChecked());
                 AlarmStore.upsert(this, editingAlarm);
                 AlarmScheduler.syncAll(this);
-                maybeRequestExactAlarmAccess();
+                maybeRequestExactAlarmAccess(true);
                 warnIfNotificationsDisabled();
                 showAlarms();
             } catch (JSONException ignored) { }
@@ -571,7 +574,7 @@ public final class MainActivity extends Activity {
                     updated.put(timer);
                     QuickTimerStore.replace(this, updated);
                     QuickTimerScheduler.syncAll(this);
-                    maybeRequestExactAlarmAccess();
+                    maybeRequestExactAlarmAccess(true);
                     warnIfNotificationsDisabled();
                     AlarmStore.appendHistory(this, timer, "started");
                     showTimers();
@@ -745,36 +748,24 @@ public final class MainActivity extends Activity {
         }
     }
 
-    private void maybeRequestExactAlarmAccess() {
+    private void maybeRequestExactAlarmAccess(boolean userInitiated) {
         if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S
                 || AlarmScheduler.canScheduleExactAlarms(this)
-                || exactAlarmPromptShowing
-                || !hasActiveSchedules()) return;
+                || exactAlarmPromptShowing) return;
+        android.content.SharedPreferences preferences = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        if (!userInitiated && preferences.getBoolean(EXACT_ALARM_PROMPT_SHOWN, false)) return;
+        preferences.edit().putBoolean(EXACT_ALARM_PROMPT_SHOWN, true).apply();
         exactAlarmPromptShowing = true;
         new AlertDialog.Builder(this)
-                .setTitle("Allow exact alarms")
-                .setMessage("Exact alarm access keeps alarms and timers on their scheduled minute, including while the phone is idle.")
+                .setTitle("Allow alarms and reminders")
+                .setMessage("To ring alarms and timers at the scheduled time while Kala Time is closed or the phone is idle, allow this app to set alarms and reminders in Android settings.")
                 .setNegativeButton("Not now", (dialog, which) -> exactAlarmPromptShowing = false)
-                .setPositiveButton("Open settings", (dialog, which) -> {
+                .setPositiveButton("Allow", (dialog, which) -> {
                     exactAlarmPromptShowing = false;
                     startActivity(AlarmScheduler.exactAlarmSettingsIntent(this));
                 })
                 .setOnCancelListener(dialog -> exactAlarmPromptShowing = false)
                 .show();
-    }
-
-    private boolean hasActiveSchedules() {
-        JSONArray alarms = AlarmStore.getAlarms(this);
-        for (int index = 0; index < alarms.length(); index += 1) {
-            JSONObject alarm = alarms.optJSONObject(index);
-            if (alarm != null && alarm.optBoolean("enabled", false)) return true;
-        }
-        JSONArray timers = QuickTimerStore.getTimers(this);
-        for (int index = 0; index < timers.length(); index += 1) {
-            JSONObject timer = timers.optJSONObject(index);
-            if (timer != null && ("running".equals(timer.optString("state")) || "ringing".equals(timer.optString("state")))) return true;
-        }
-        return false;
     }
 
     private void warnIfNotificationsDisabled() {
