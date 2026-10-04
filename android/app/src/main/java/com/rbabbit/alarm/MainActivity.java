@@ -731,7 +731,8 @@ public final class MainActivity extends Activity {
     private void changeCounter(JSONObject counter, long delta) {
         try {
             long current = counter.optLong("value", 0);
-            long next = delta == 0 ? 0 : Math.min(CounterStore.MAX_COUNTER_VALUE, current + delta);
+            long next = delta == 0 ? 0 : Math.max(0L,
+                    Math.min(CounterStore.MAX_COUNTER_VALUE, current + delta));
             counter.put("value", next);
             CounterStore.update(this, counter);
             showCounter();
@@ -903,7 +904,7 @@ public final class MainActivity extends Activity {
 
     private void renderWeather(TextView status, LinearLayout forecast, JSONObject current, JSONObject daily,
                                double latitude, double longitude) {
-        status.setText("Ready");
+        status.setText("GPS connected");
         forecast.removeAllViews();
         weatherCoordinates = text(String.format(Locale.UK, "GPS coordinates  %.4f, %.4f", latitude, longitude), 15, MUTED);
         weatherCoordinates.setPaintFlags(weatherCoordinates.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
