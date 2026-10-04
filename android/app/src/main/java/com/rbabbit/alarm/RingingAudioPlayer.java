@@ -2,11 +2,14 @@ package com.rbabbit.alarm;
 
 import android.content.Context;
 import android.media.AudioAttributes;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
 import android.media.AudioFormat;
 import android.media.AudioTrack;
 import android.media.MediaPlayer;
 import android.media.RingtoneManager;
 import android.os.Build;
+import android.os.PowerManager;
 import android.provider.Settings;
 
 /** Plays the same generated alarm tones for alarms and Multi-Timer notifications. */
@@ -18,16 +21,22 @@ final class RingingAudioPlayer {
 
     private AudioTrack generatedTrack;
     private MediaPlayer fallbackPlayer;
+    private AudioManager audioManager;
+    private AudioFocusRequest audioFocusRequest;
+    private PowerManager.WakeLock wakeLock;
+    private final AudioManager.OnAudioFocusChangeListener focusListener = focus -> { };
 
     void start(Context context, String sound, double volume) {
         release();
         try {
+            acquireKeepAlive(context);
             ToneStep[] pattern = patternFor(sound);
             short[] samples = generateSamples(pattern);
             AudioAttributes attributes = new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_ALARM)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                     .build();
+            requestAudioFocus(context, attributes);
             AudioFormat format = new AudioFormat.Builder()
                     .setSampleRate(SAMPLE_RATE)
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
@@ -61,17 +70,55 @@ final class RingingAudioPlayer {
             fallbackPlayer.release();
             fallbackPlayer = null;
         }
+        if (audioManager != null) {
+            if (Build.VERSION.SDK_INT >= 26 && audioFocusRequest != null) {
+                audioManager.abandonAudioFocusRequest(audioFocusRequest);
+            } else {
+                audioManager.abandonAudioFocus(null);
+            }
+            audioFocusRequest = null;
+            audioManager = null;
+        }
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release();
+        }
+        wakeLock = null;
+    }
+
+    private void acquireKeepAlive(Context context) {
+        PowerManager power = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+        if (power == null) return;
+        wakeLock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "KalaTimeAlarm:Ringing");
+        wakeLock.setReferenceCounted(false);
+        wakeLock.acquire();
+    }
+
+    private void requestAudioFocus(Context context, AudioAttributes attributes) {
+        audioManager = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
+        if (audioManager == null) return;
+        if (Build.VERSION.SDK_INT >= 26) {
+            audioFocusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
+                    .setAudioAttributes(attributes)
+                    .setOnAudioFocusChangeListener(focusListener)
+                    .build();
+            audioManager.requestAudioFocus(audioFocusRequest);
+        } else {
+            audioManager.requestAudioFocus(focusListener, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT);
+        }
     }
 
     private void playDefault(Context context, double volume) {
         try {
             android.net.Uri uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM);
             if (uri == null) uri = Settings.System.DEFAULT_ALARM_ALERT_URI;
-            fallbackPlayer = new MediaPlayer();
-            fallbackPlayer.setAudioAttributes(new AudioAttributes.Builder()
+            AudioAttributes attributes = new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_ALARM)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                    .build());
+                    .build();
+            acquireKeepAlive(context);
+            requestAudioFocus(context, attributes);
+            fallbackPlayer = new MediaPlayer();
+            fallbackPlayer.setAudioAttributes(attributes);
             fallbackPlayer.setDataSource(context, uri);
             fallbackPlayer.setLooping(true);
             float safeVolume = (float) Math.max(0.0, Math.min(1.0, volume));

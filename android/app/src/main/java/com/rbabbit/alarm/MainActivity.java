@@ -349,6 +349,7 @@ public final class MainActivity extends Activity {
 
     private void showEditAlarm(JSONObject alarm) {
         try { editingAlarm = new JSONObject(alarm.toString()); } catch (JSONException error) { return; }
+        ensureRepeatDays(editingAlarm);
         currentPage = "alarms";
         LinearLayout toolbar = (LinearLayout) root.getChildAt(0);
         while (toolbar.getChildCount() > 0) toolbar.removeViewAt(0);
@@ -722,8 +723,14 @@ public final class MainActivity extends Activity {
         weatherHeader.addView(weatherTitle, new LinearLayout.LayoutParams(0, dp(48), 1));
         Button locate = plainButton("Locate Me", 14);
         locate.setAllCaps(false);
-        locate.setContentDescription("Use my GPS location");
-        weatherHeader.addView(locate, new LinearLayout.LayoutParams(dp(108), dp(44)));
+        locate.setMinWidth(0);
+        locate.setMinHeight(0);
+        locate.setGravity(Gravity.CENTER);
+        locate.setTextSize(12);
+        locate.setPadding(dp(8), 0, dp(8), 0);
+        locate.setBackground(outline());
+        locate.setContentDescription("Locate Me");
+        weatherHeader.addView(locate, new LinearLayout.LayoutParams(dp(88), dp(40)));
         column.addView(weatherHeader);
         weatherStatus = text("Location not loaded", 16, MUTED);
         column.addView(weatherStatus, new LinearLayout.LayoutParams(-1, dp(36)));
@@ -955,6 +962,19 @@ public final class MainActivity extends Activity {
             alarm.put("enabled", true);
         } catch (JSONException ignored) { }
         return alarm;
+    }
+
+    private void ensureRepeatDays(JSONObject alarm) {
+        if (alarm == null || "once".equals(alarm.optString("frequency"))) return;
+        JSONArray days = alarm.optJSONArray("repeatDays");
+        if (days != null && days.length() > 0) return;
+        try { alarm.put("repeatDays", allRepeatDays()); } catch (JSONException ignored) { }
+    }
+
+    private JSONArray allRepeatDays() {
+        JSONArray days = new JSONArray();
+        for (String code : DAY_CODES) days.put(code);
+        return days;
     }
 
     private void chooseTime(Button target, String value) {
