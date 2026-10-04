@@ -14,6 +14,8 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.view.View;
 import android.view.WindowInsets;
+import android.widget.FrameLayout;
+import android.widget.Switch;
 import android.view.KeyEvent;
 import android.webkit.GeolocationPermissions;
 import android.webkit.WebChromeClient;
@@ -34,10 +36,16 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public final class MainActivity extends Activity {
     private static final int LOCATION_REQUEST_CODE = 1001;
     private static final int APP_PERMISSIONS_REQUEST_CODE = 1002;
     private WebView webView;
+    private FrameLayout rootLayout;
+    private final Map<String, Switch> nativeSwitches = new HashMap<>();
+    private boolean syncingNativeSwitches;
     private int topInsetPx;
     private int bottomInsetPx;
     private boolean appPermissionsRequested;
@@ -57,7 +65,12 @@ public final class MainActivity extends Activity {
         webView = new WebView(this);
         webView.setBackgroundColor(Color.WHITE);
         webView.setFitsSystemWindows(false);
-        setContentView(webView);
+        rootLayout = new FrameLayout(this);
+        rootLayout.addView(webView, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+        ));
+        setContentView(rootLayout);
         getWindow().setStatusBarColor(Color.WHITE);
         getWindow().setNavigationBarColor(Color.WHITE);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -134,6 +147,7 @@ public final class MainActivity extends Activity {
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         webView.addJavascriptInterface(new AndroidAlarmBridge(), "AndroidAlarmBridge");
+        webView.addJavascriptInterface(new NativeControlsBridge(), "AndroidNativeControls");
 
         WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
                 .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
@@ -287,6 +301,80 @@ public final class MainActivity extends Activity {
                 startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
                         .setData(Uri.parse("package:" + getPackageName())));
             } catch (RuntimeException ignored) { }
+        }
+    }
+
+    private Switch createNativeSwitch(String key, String description) {
+        Switch control = new Switch(this);
+        control.setShowText(false);
+        control.setSwitchMinWidth(dp(64));
+        control.setContentDescription(description);
+        control.setOnCheckedChangeListener((button, checked) -> {
+            if (syncingNativeSwitches || webView == null) return;
+            String script = "window.setNativeSwitch && window.setNativeSwitch("
+                    + JSONObject.quote(key) + "," + checked + ");";
+            webView.post(() -> webView.evaluateJavascript(script, null));
+        });
+        control.setVisibility(View.GONE);
+        return control;
+    }
+
+    private Switch nativeSwitchFor(String key, String description) {
+        Switch existing = nativeSwitches.get(key);
+        if (existing != null) return existing;
+        Switch created = createNativeSwitch(key, description);
+        nativeSwitches.put(key, created);
+        rootLayout.addView(created, new FrameLayout.LayoutParams(1, 1));
+        return created;
+    }
+
+    private void updateNativeSwitch(Switch control, JSONObject state) {
+        if (control == null || state == null) {
+            if (control != null) control.setVisibility(View.GONE);
+            return;
+        }
+        float scale = webView == null ? 1f : webView.getScale();
+        int width = Math.max(dp(48), Math.round((float) state.optDouble("width", 64) * scale));
+        int height = Math.max(dp(48), Math.round((float) state.optDouble("height", 34) * scale));
+        int left = webView == null ? 0 : webView.getLeft() + Math.round((float) state.optDouble("left", 0) * scale);
+        int top = webView == null ? 0 : webView.getTop() + Math.round((float) state.optDouble("top", 0) * scale)
+                - Math.max(0, height - Math.round((float) state.optDouble("height", 34) * scale)) / 2;
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, height);
+        params.leftMargin = left;
+        params.topMargin = top;
+        control.setLayoutParams(params);
+        syncingNativeSwitches = true;
+        control.setChecked(state.optBoolean("checked", false));
+        syncingNativeSwitches = false;
+        control.setVisibility(View.VISIBLE);
+        control.bringToFront();
+    }
+
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    public final class NativeControlsBridge {
+        @JavascriptInterface
+        public void syncNativeSwitches(String stateJson) {
+            runOnUiThread(() -> {
+                try {
+                    JSONObject state = new JSONObject(stateJson == null ? "{}" : stateJson);
+                    for (Switch control : nativeSwitches.values()) control.setVisibility(View.GONE);
+                    JSONArray switches = state.optJSONArray("switches");
+                    if (switches == null) return;
+                    for (int index = 0; index < switches.length(); index += 1) {
+                        JSONObject switchState = switches.optJSONObject(index);
+                        if (switchState == null) continue;
+                        String key = switchState.optString("key", "");
+                        if (key.isEmpty()) continue;
+                        Switch control = nativeSwitchFor(key, switchState.optString("description", key));
+                        updateNativeSwitch(control, switchState);
+                    }
+                } catch (JSONException ignored) {
+                    for (Switch control : nativeSwitches.values()) control.setVisibility(View.GONE);
+                }
+            });
         }
     }
 

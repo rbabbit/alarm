@@ -76,6 +76,41 @@ function isNativeAndroid() {
   return nativeBridge() !== null;
 }
 
+function nativeControlsBridge() {
+  return isNativeAndroid() && window.AndroidNativeControls
+    && typeof window.AndroidNativeControls.syncNativeSwitches === "function"
+    ? window.AndroidNativeControls
+    : null;
+}
+
+function syncNativeSwitches() {
+  const bridge = nativeControlsBridge();
+  if (!bridge) return;
+  const controlState = (input, key) => {
+    const wrapper = input.closest(".switch-wrap, .alarm-switch-control");
+    if (!wrapper) return null;
+    const rect = wrapper.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return null;
+    return { key, left: rect.left, top: rect.top, width: rect.width, height: rect.height, checked: input.checked, description: input.getAttribute("aria-label") || input.id || key };
+  };
+  const switches = [...document.querySelectorAll('input[type="checkbox"][role="switch"]')]
+    .map((input) => {
+      const key = input.id || (input.dataset.toggle ? `alarm:${input.dataset.toggle}` : "");
+      return key ? controlState(input, key) : null;
+    })
+    .filter(Boolean);
+  bridge.syncNativeSwitches(JSON.stringify({ view: currentView, switches }));
+}
+
+window.setNativeSwitch = (key, checked) => {
+  const input = key.startsWith("alarm:")
+    ? [...document.querySelectorAll("input[data-toggle]")].find((item) => item.dataset.toggle === key.slice(6))
+    : document.getElementById(key);
+  if (!input || input.type !== "checkbox" || input.checked === Boolean(checked)) return;
+  input.checked = Boolean(checked);
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+};
+
 function mergeHistoryLists(...lists) {
   const byId = new Map();
   for (const list of lists) {
@@ -182,6 +217,7 @@ function showView(view) {
   Object.entries(screens).forEach(([name, screen]) => screen.classList.toggle("hidden", name !== view));
   document.querySelectorAll(".bottom-nav").forEach((nav) => { nav.innerHTML = navMarkup(view); });
   render();
+  syncNativeSwitches();
 }
 
 function render() {
@@ -191,6 +227,7 @@ function render() {
   if (currentView === "quick") renderQuick();
   if (currentView === "info") renderInfo();
   renderRingingBanner();
+  syncNativeSwitches();
 }
 
 function renderList() {
@@ -304,6 +341,7 @@ function renderEdit() {
   syncFrequencyFields();
   document.querySelector("#repeat-days").innerHTML = DAY_CODES.map((day) => `<button type="button" data-day="${day}" class="${draft.repeatDays.includes(day) ? "selected" : ""}" aria-label="${DAY_LABELS[day]}">${day[0]}</button>`).join("");
   renderPreview();
+  syncNativeSwitches();
 }
 
 function syncSwitchStates(root = document) {
@@ -796,7 +834,10 @@ document.querySelector("#back-to-list").addEventListener("click", () => showView
 document.querySelector("#delete-alarm").addEventListener("click", deleteCurrentAlarm);
 document.querySelector("#alarm-form").addEventListener("submit", saveDraft);
 document.querySelector("#alarm-form").addEventListener("change", (event) => {
-  if (event.target.matches('input[type="checkbox"][role="switch"]')) syncSwitchStates(document);
+  if (event.target.matches('input[type="checkbox"][role="switch"]')) {
+    syncSwitchStates(document);
+    syncNativeSwitches();
+  }
 });
 document.querySelector("#ringing-stop").addEventListener("click", () => stopRinging());
 document.querySelector("#ringing-snooze").addEventListener("click", snoozeRinging);
@@ -985,6 +1026,9 @@ document.querySelector("#preview-sound").addEventListener("click", async () => {
 
 setupNavigation();
 hydrateNativeState();
+document.querySelector("#edit-screen .alarm-form")?.addEventListener("scroll", syncNativeSwitches, { passive: true });
+document.querySelector("#alarm-list")?.addEventListener("scroll", syncNativeSwitches, { passive: true });
+window.addEventListener("resize", syncNativeSwitches);
 document.addEventListener("pointerdown", primeAlarmAudio, { passive: true });
 document.addEventListener("keydown", primeAlarmAudio, { passive: true });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) primeAlarmAudio(); });
