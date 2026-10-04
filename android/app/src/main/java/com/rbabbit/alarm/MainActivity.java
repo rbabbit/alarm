@@ -2,679 +2,755 @@ package com.rbabbit.alarm;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.TimePickerDialog;
-import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
-import android.net.Uri;
-import android.os.Build;
+import android.location.Location;
+import android.location.LocationListener;
+import android.location.LocationManager;
 import android.os.Bundle;
-import android.provider.Settings;
-import android.text.Editable;
-import android.text.TextWatcher;
-import android.util.TypedValue;
-import android.view.View;
-import android.view.WindowInsets;
+import android.os.Handler;
+import android.os.Looper;
+import android.text.InputType;
 import android.view.Gravity;
-import android.widget.FrameLayout;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CompoundButton;
 import android.widget.EditText;
-import android.widget.SeekBar;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
+import android.widget.ScrollView;
+import android.widget.Spinner;
 import android.widget.Switch;
-import android.view.KeyEvent;
-import android.webkit.GeolocationPermissions;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.JavascriptInterface;
-import android.window.OnBackInvokedDispatcher;
-
-import androidx.annotation.Nullable;
-import androidx.core.content.ContextCompat;
-import androidx.core.view.WindowCompat;
-import androidx.webkit.WebViewAssetLoader;
-import androidx.webkit.WebViewClientCompat;
+import android.widget.TextView;
+import android.widget.ToggleButton;
 
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.util.HashMap;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Locale;
-import java.util.Map;
+import java.util.UUID;
 
+/** Native Android UI. No WebView, JavaScript bridge, or CSS controls are used here. */
 public final class MainActivity extends Activity {
-    private static final int LOCATION_REQUEST_CODE = 1001;
-    private static final int APP_PERMISSIONS_REQUEST_CODE = 1002;
-    private WebView webView;
-    private FrameLayout rootLayout;
-    private final Map<String, Switch> nativeSwitches = new HashMap<>();
-    private final Map<String, View> nativeControls = new HashMap<>();
-    private final Map<String, String> nativeControlTypes = new HashMap<>();
-    private final Map<String, JSONObject> nativeControlStates = new HashMap<>();
-    private boolean syncingNativeSwitches;
-    private boolean syncingNativeControls;
-    private int topInsetPx;
-    private int bottomInsetPx;
-    private boolean appPermissionsRequested;
-    private boolean exactAlarmSettingsRequested;
-    private final BroadcastReceiver quickTimerStateReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (QuickTimerScheduler.ACTION_STATE_CHANGED.equals(intent.getAction())) notifyWebState();
-        }
-    };
+    private static final int LOCATION_REQUEST = 71;
+    private static final int NOTIFICATION_REQUEST = 72;
+    private static final long MAX_TIMER_MINUTES = 30L * 24L * 60L;
+    private static final String[] DAY_CODES = {"MO", "TU", "WE", "TH", "FR", "SA", "SU"};
+    private static final String[] DAY_LABELS = {"M", "T", "W", "T", "F", "S", "S"};
+    private static final int INK = Color.rgb(20, 20, 20);
+    private static final int MUTED = Color.rgb(105, 105, 105);
+    private static final int PAGE = Color.rgb(247, 247, 247);
+
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private LinearLayout root;
+    private FrameLayout content;
+    private LinearLayout bottomNav;
+    private TextView pageTitle;
+    private boolean editing;
+    private JSONObject editingAlarm;
+    private String currentPage = "alarms";
+    private Runnable ticker;
 
     @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
-        webView = new WebView(this);
-        webView.setBackgroundColor(Color.WHITE);
-        webView.setFitsSystemWindows(false);
-        rootLayout = new FrameLayout(this);
-        rootLayout.addView(webView, new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-        ));
-        setContentView(rootLayout);
+    protected void onCreate(Bundle state) {
+        super.onCreate(state);
         getWindow().setStatusBarColor(Color.WHITE);
         getWindow().setNavigationBarColor(Color.WHITE);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            getWindow().setNavigationBarContrastEnforced(false);
-        }
-        applySystemBarInsets();
-        configureWebView();
+        getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
         NotificationHelper.createChannel(this);
-        AlarmScheduler.syncAll(this);
         QuickTimerNotificationHelper.createChannel(this);
+        AlarmScheduler.syncAll(this);
         QuickTimerScheduler.syncAll(this);
-        ContextCompat.registerReceiver(this, quickTimerStateReceiver,
-                new IntentFilter(QuickTimerScheduler.ACTION_STATE_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED);
-        if (Build.VERSION.SDK_INT >= 33) {
-            getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
-                    OnBackInvokedDispatcher.PRIORITY_DEFAULT,
-                    this::handleBack
-            );
+        buildShell();
+        showAlarms();
+        if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_REQUEST);
         }
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(
-                    new String[]{
-                            Manifest.permission.ACCESS_FINE_LOCATION,
-                            Manifest.permission.ACCESS_COARSE_LOCATION
-                    },
-                    LOCATION_REQUEST_CODE
-            );
-        } else {
-            loadWebApp();
-        }
-    }
-
-    private void applySystemBarInsets() {
-        webView.setOnApplyWindowInsetsListener((view, insets) -> {
-            int topInset;
-            int bottomInset;
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                topInset = insets.getInsets(WindowInsets.Type.statusBars()).top;
-                bottomInset = insets.getInsets(WindowInsets.Type.navigationBars()).bottom;
-            } else {
-                topInset = insets.getSystemWindowInsetTop();
-                bottomInset = insets.getSystemWindowInsetBottom();
-            }
-            topInsetPx = topInset;
-            bottomInsetPx = bottomInset;
-            // Keep the WebView edge-to-edge and let the web shell own layout
-            // insets through the CSS variables below. Applying native padding
-            // as well would create two competing inset systems and can place
-            // headers underneath the Android status bar on some devices.
-            view.setPadding(0, 0, 0, 0);
-            updateWebSafeArea();
-            return insets;
-        });
-        webView.requestApplyInsets();
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
-            );
-        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
-        }
-    }
-
-    private void configureWebView() {
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setAllowFileAccess(false);
-        settings.setAllowContentAccess(false);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        webView.addJavascriptInterface(new AndroidAlarmBridge(), "AndroidAlarmBridge");
-        webView.addJavascriptInterface(new NativeControlsBridge(), "AndroidNativeControls");
-
-        WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
-                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
-                .build();
-
-        webView.setWebViewClient(new WebViewClientCompat() {
-            @Override
-            public WebResourceResponse shouldInterceptRequest(
-                    WebView view,
-                    WebResourceRequest request
-            ) {
-                return assetLoader.shouldInterceptRequest(request.getUrl());
-            }
-
-            @Override
-            @SuppressWarnings("deprecation")
-            public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
-                return assetLoader.shouldInterceptRequest(Uri.parse(url));
-            }
-
-            @Override
-            public void onPageFinished(WebView view, String url) {
-                super.onPageFinished(view, url);
-                view.evaluateJavascript("document.documentElement.classList.add('native-android');", null);
-                updateWebSafeArea();
-                notifyWebState();
-            }
-        });
-
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public void onGeolocationPermissionsShowPrompt(
-                    String origin,
-                    GeolocationPermissions.Callback callback
-            ) {
-                callback.invoke(origin, true, false);
-            }
-        });
-    }
-
-    private void loadWebApp() {
-        webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html");
-    }
-
-    private void notifyWebState() {
-        if (webView == null) return;
-        String state = JSONObject.quote(AlarmStore.getStateJson(this));
-        webView.evaluateJavascript(
-                "window.applyNativeAlarmState && window.applyNativeAlarmState(" + state + ");",
-                null
-        );
-    }
-
-    private void requestAppPermissions(String stateJson) {
-        if (appPermissionsRequested) return;
-        try {
-            JSONObject state = new JSONObject(stateJson == null ? "{}" : stateJson);
-            JSONArray alarms = state.optJSONArray("alarms");
-            JSONArray quickTimers = state.optJSONArray("quickTimers");
-            boolean hasEnabledAlarm = false;
-            if (alarms != null) {
-                for (int index = 0; index < alarms.length(); index += 1) {
-                    JSONObject alarm = alarms.optJSONObject(index);
-                    if (alarm == null || !alarm.optBoolean("enabled", false)) continue;
-                    hasEnabledAlarm = true;
-                }
-            }
-            boolean hasRunningQuickTimer = false;
-            if (quickTimers != null) {
-                for (int index = 0; index < quickTimers.length(); index += 1) {
-                    JSONObject timer = quickTimers.optJSONObject(index);
-                    if (timer != null && ("running".equals(timer.optString("state"))
-                            || "ringing".equals(timer.optString("state")))) {
-                        hasRunningQuickTimer = true;
-                        break;
-                    }
-                }
-            }
-            if (!hasEnabledAlarm && !hasRunningQuickTimer) return;
-
-            if (Build.VERSION.SDK_INT >= 31 && !AlarmScheduler.canScheduleExactAlarms(this) && !exactAlarmSettingsRequested) {
-                try {
-                    exactAlarmSettingsRequested = true;
-                    startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                            .setData(Uri.parse("package:" + getPackageName())));
-                    return;
-                } catch (RuntimeException ignored) {
-                    // The app continues with inexact delivery if this settings page is unavailable.
-                }
-            }
-
-            java.util.ArrayList<String> missing = new java.util.ArrayList<>();
-            if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                missing.add(Manifest.permission.POST_NOTIFICATIONS);
-            }
-            if (!missing.isEmpty()) {
-                appPermissionsRequested = true;
-                requestPermissions(missing.toArray(new String[0]), APP_PERMISSIONS_REQUEST_CODE);
-            }
-        } catch (JSONException ignored) {
-            // Invalid web state cannot be used to request permissions.
-        }
-    }
-
-    public final class AndroidAlarmBridge {
-        @JavascriptInterface
-        public String getState() {
-            return AlarmStore.getStateJson(MainActivity.this);
-        }
-
-        @JavascriptInterface
-        public void syncState(String stateJson) {
-            runOnUiThread(() -> {
-                AlarmScheduler.cancelKnownAlarms(MainActivity.this);
-                AlarmStore.syncState(MainActivity.this, stateJson);
-                AlarmScheduler.syncAll(MainActivity.this);
-                requestAppPermissions(stateJson);
-                notifyWebState();
-            });
-        }
-
-        @JavascriptInterface
-        public void syncQuickTimers(String timersJson) {
-            runOnUiThread(() -> {
-                QuickTimerScheduler.cancelKnownTimers(MainActivity.this);
-                QuickTimerStore.sync(MainActivity.this, timersJson);
-                QuickTimerScheduler.syncAll(MainActivity.this);
-                requestAppPermissions(AlarmStore.getStateJson(MainActivity.this));
-            });
-        }
-
-        @JavascriptInterface
-        public void stopQuickTimer(String timerId) {
-            QuickTimerActionReceiver.stop(MainActivity.this, timerId);
-        }
-
-        @JavascriptInterface
-        public void snoozeQuickTimer(String timerId) {
-            QuickTimerActionReceiver.snooze(MainActivity.this, timerId);
-        }
-
-        @JavascriptInterface
-        public boolean canScheduleExactAlarms() {
-            return AlarmScheduler.canScheduleExactAlarms(MainActivity.this);
-        }
-
-        @JavascriptInterface
-        public void openExactAlarmSettings() {
-            if (Build.VERSION.SDK_INT < 31) return;
-            try {
-                startActivity(new Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                        .setData(Uri.parse("package:" + getPackageName())));
-            } catch (RuntimeException ignored) { }
-        }
-    }
-
-    private Switch createNativeSwitch(String key, String description) {
-        Switch control = new Switch(this);
-        control.setShowText(false);
-        control.setSwitchMinWidth(dp(64));
-        control.setContentDescription(description);
-        control.setOnCheckedChangeListener((button, checked) -> {
-            if (syncingNativeSwitches || webView == null) return;
-            String script = "window.setNativeSwitch && window.setNativeSwitch("
-                    + JSONObject.quote(key) + "," + checked + ");";
-            webView.post(() -> webView.evaluateJavascript(script, null));
-        });
-        control.setVisibility(View.GONE);
-        return control;
-    }
-
-    private Switch nativeSwitchFor(String key, String description) {
-        Switch existing = nativeSwitches.get(key);
-        if (existing != null) return existing;
-        Switch created = createNativeSwitch(key, description);
-        nativeSwitches.put(key, created);
-        rootLayout.addView(created, new FrameLayout.LayoutParams(1, 1));
-        return created;
-    }
-
-    private void updateNativeSwitch(Switch control, JSONObject state) {
-        if (control == null || state == null) {
-            if (control != null) control.setVisibility(View.GONE);
-            return;
-        }
-        float scale = webView == null ? 1f : webView.getScale();
-        int width = Math.max(dp(48), Math.round((float) state.optDouble("width", 64) * scale));
-        int height = Math.max(dp(48), Math.round((float) state.optDouble("height", 34) * scale));
-        int left = webView == null ? 0 : webView.getLeft() + Math.round((float) state.optDouble("left", 0) * scale);
-        int top = webView == null ? 0 : webView.getTop() + Math.round((float) state.optDouble("top", 0) * scale)
-                - Math.max(0, height - Math.round((float) state.optDouble("height", 34) * scale)) / 2;
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, height);
-        params.leftMargin = left;
-        params.topMargin = top;
-        control.setLayoutParams(params);
-        syncingNativeSwitches = true;
-        control.setChecked(state.optBoolean("checked", false));
-        syncingNativeSwitches = false;
-        control.setVisibility(View.VISIBLE);
-        control.bringToFront();
-    }
-
-    private void dispatchNativeControl(String key, String value) {
-        if (webView == null) return;
-        String script = "window.dispatchNativeControl && window.dispatchNativeControl(" + JSONObject.quote(key);
-        if (value != null) script += "," + JSONObject.quote(value);
-        script += ");";
-        final String javascript = script;
-        webView.post(() -> webView.evaluateJavascript(javascript, null));
-    }
-
-    private String selectedOptionLabel(JSONObject state) {
-        String value = state.optString("value", "");
-        JSONArray options = state.optJSONArray("options");
-        if (options != null) {
-            for (int index = 0; index < options.length(); index += 1) {
-                JSONObject option = options.optJSONObject(index);
-                if (option != null && value.equals(option.optString("value"))) {
-                    return option.optString("label", value);
-                }
-            }
-        }
-        return value;
-    }
-
-    private void showNativeTimePicker(String key, JSONObject state) {
-        String value = state.optString("value", "00:00");
-        int hour = 0;
-        int minute = 0;
-        try {
-            String[] parts = value.split(":");
-            hour = Math.max(0, Math.min(23, Integer.parseInt(parts[0])));
-            minute = Math.max(0, Math.min(59, Integer.parseInt(parts[1])));
-        } catch (RuntimeException ignored) { }
-        new TimePickerDialog(
-                this,
-                (view, selectedHour, selectedMinute) -> dispatchNativeControl(
-                        key,
-                        String.format(Locale.US, "%02d:%02d", selectedHour, selectedMinute)
-                ),
-                hour,
-                minute,
-                true
-        ).show();
-    }
-
-    private void showNativeSelect(String key, JSONObject state) {
-        JSONArray options = state.optJSONArray("options");
-        if (options == null || options.length() == 0) return;
-        String[] labels = new String[options.length()];
-        int selected = 0;
-        String current = state.optString("value", "");
-        for (int index = 0; index < options.length(); index += 1) {
-            JSONObject option = options.optJSONObject(index);
-            labels[index] = option == null ? "" : option.optString("label", option.optString("value", ""));
-            if (option != null && current.equals(option.optString("value"))) selected = index;
-        }
-        AlertDialog dialog = new AlertDialog.Builder(this)
-                .setTitle(state.optString("text", "Choose an option"))
-                .setSingleChoiceItems(labels, selected, null)
-                .create();
-        dialog.setOnShowListener(ignored -> {
-            android.widget.ListView list = dialog.getListView();
-            list.setOnItemClickListener((parent, view, position, id) -> {
-                JSONObject option = options.optJSONObject(position);
-                if (option != null) dispatchNativeControl(key, option.optString("value", ""));
-                dialog.dismiss();
-            });
-        });
-        dialog.show();
-    }
-
-    private GradientDrawable nativeBackground(JSONObject state, boolean selected) {
-        String classes = state.optString("className", "") + " " + state.optString("parentClassName", "");
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(selected ? Color.BLACK : Color.WHITE);
-        background.setStroke(dp(1), Color.BLACK);
-        if (classes.contains("bottom-nav")) {
-            background.setColor(Color.TRANSPARENT);
-            background.setStroke(0, Color.TRANSPARENT);
-        } else if (classes.contains("day-picker") || classes.contains("alarm-day-strip")) {
-            background.setShape(GradientDrawable.OVAL);
-        } else {
-            background.setCornerRadius(dp(8));
-        }
-        return background;
-    }
-
-    private View createNativeControl(String key, String type) {
-        if ("switch".equals(type)) {
-            Switch control = nativeSwitchFor(key, key);
-            nativeControls.put(key, control);
-            return control;
-        }
-        if ("input".equals(type)) {
-            EditText control = new EditText(this);
-            control.setSingleLine(true);
-            control.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-            control.addTextChangedListener(new TextWatcher() {
-                @Override public void beforeTextChanged(CharSequence value, int start, int count, int after) { }
-                @Override public void onTextChanged(CharSequence value, int start, int before, int count) {
-                    if (!syncingNativeControls) dispatchNativeControl(key, value.toString());
-                }
-                @Override public void afterTextChanged(Editable value) { }
-            });
-            nativeControls.put(key, control);
-            rootLayout.addView(control, new FrameLayout.LayoutParams(1, 1));
-            return control;
-        }
-        if ("range".equals(type)) {
-            SeekBar control = new SeekBar(this);
-            control.setMax(1000);
-            control.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-                @Override public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
-                    if (!syncingNativeControls && fromUser) {
-                        JSONObject state = nativeControlStates.get(key);
-                        double min = state == null ? 0 : state.optDouble("min", 0);
-                        double max = state == null ? 1 : state.optDouble("max", 1);
-                        double value = min + (max - min) * progress / 1000d;
-                        dispatchNativeControl(key, String.format(Locale.US, "%.3f", value));
-                    }
-                }
-                @Override public void onStartTrackingTouch(SeekBar bar) { }
-                @Override public void onStopTrackingTouch(SeekBar bar) { }
-            });
-            nativeControls.put(key, control);
-            rootLayout.addView(control, new FrameLayout.LayoutParams(1, 1));
-            return control;
-        }
-        Button control = new Button(this);
-        control.setAllCaps(false);
-        control.setGravity(Gravity.CENTER);
-        control.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        control.setPadding(dp(4), 0, dp(4), 0);
-        control.setOnClickListener(view -> {
-            JSONObject state = nativeControlStates.get(key);
-            if (state == null) return;
-            if ("time".equals(type)) showNativeTimePicker(key, state);
-            else if ("select".equals(type)) showNativeSelect(key, state);
-            else dispatchNativeControl(key, null);
-        });
-        nativeControls.put(key, control);
-        rootLayout.addView(control, new FrameLayout.LayoutParams(1, 1));
-        return control;
-    }
-
-    private void updateNativeControl(View control, JSONObject state) {
-        String key = state.optString("key", "");
-        String type = state.optString("type", "button");
-        nativeControlStates.put(key, state);
-        float scale = webView == null ? 1f : webView.getScale();
-        int width = Math.max(dp(32), Math.round((float) state.optDouble("width", 48) * scale));
-        int height = Math.max(dp(32), Math.round((float) state.optDouble("height", 40) * scale));
-        int left = webView == null ? 0 : webView.getLeft() + Math.round((float) state.optDouble("left", 0) * scale);
-        int top = webView == null ? 0 : webView.getTop() + Math.round((float) state.optDouble("top", 0) * scale);
-        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, height);
-        params.leftMargin = left;
-        params.topMargin = top;
-        control.setLayoutParams(params);
-        control.setEnabled(state.optBoolean("enabled", true));
-        if (control instanceof Switch) {
-            syncingNativeSwitches = true;
-            ((Switch) control).setChecked(state.optBoolean("checked", false));
-            syncingNativeSwitches = false;
-        } else if (control instanceof EditText) {
-            EditText editText = (EditText) control;
-            String value = state.optString("value", "");
-            syncingNativeControls = true;
-            if (!value.equals(editText.getText().toString())) {
-                editText.setText(value);
-                editText.setSelection(editText.length());
-            }
-            editText.setHint(state.optString("hint", ""));
-            if ("number".equals(state.optString("inputType", ""))) {
-                editText.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
-            }
-            syncingNativeControls = false;
-        } else if (control instanceof SeekBar) {
-            double min = state.optDouble("min", 0);
-            double max = state.optDouble("max", 1);
-            double value = state.optDouble("value", min);
-            int progress = max <= min ? 0 : (int) Math.round((value - min) * 1000d / (max - min));
-            syncingNativeControls = true;
-            ((SeekBar) control).setProgress(Math.max(0, Math.min(1000, progress)));
-            syncingNativeControls = false;
-        } else if (control instanceof Button) {
-            Button button = (Button) control;
-            String label;
-            if ("time".equals(type)) label = state.optString("value", "00:00");
-            else if ("select".equals(type)) label = selectedOptionLabel(state);
-            else label = state.optString("text", "");
-            button.setText(label);
-            boolean selected = state.optBoolean("selected", false) || state.optString("className", "").contains("selected");
-            button.setTextColor(selected ? Color.WHITE : Color.BLACK);
-            button.setBackground(nativeBackground(state, selected));
-        }
-        control.setVisibility(View.VISIBLE);
-        control.bringToFront();
-    }
-
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    public final class NativeControlsBridge {
-        @JavascriptInterface
-        public void syncNativeControls(String stateJson) {
-            runOnUiThread(() -> {
-                try {
-                    JSONObject state = new JSONObject(stateJson == null ? "{}" : stateJson);
-                    for (View control : nativeControls.values()) control.setVisibility(View.GONE);
-                    JSONArray controls = state.optJSONArray("controls");
-                    if (controls == null) return;
-                    for (int index = 0; index < controls.length(); index += 1) {
-                        JSONObject controlState = controls.optJSONObject(index);
-                        if (controlState == null) continue;
-                        String key = controlState.optString("key", "");
-                        String type = controlState.optString("type", "button");
-                        if (key.isEmpty()) continue;
-                        View control = nativeControls.get(key);
-                        if (control == null || !type.equals(nativeControlTypes.get(key))) {
-                            if (control != null) rootLayout.removeView(control);
-                            nativeControlTypes.put(key, type);
-                            control = createNativeControl(key, type);
-                        }
-                        updateNativeControl(control, controlState);
-                    }
-                } catch (JSONException ignored) {
-                    for (View control : nativeControls.values()) control.setVisibility(View.GONE);
-                }
-            });
-        }
-
-        @JavascriptInterface
-        public void syncNativeSwitches(String stateJson) {
-            runOnUiThread(() -> {
-                try {
-                    JSONObject state = new JSONObject(stateJson == null ? "{}" : stateJson);
-                    for (Switch control : nativeSwitches.values()) control.setVisibility(View.GONE);
-                    JSONArray switches = state.optJSONArray("switches");
-                    if (switches == null) return;
-                    for (int index = 0; index < switches.length(); index += 1) {
-                        JSONObject switchState = switches.optJSONObject(index);
-                        if (switchState == null) continue;
-                        String key = switchState.optString("key", "");
-                        if (key.isEmpty()) continue;
-                        Switch control = nativeSwitchFor(key, switchState.optString("description", key));
-                        updateNativeSwitch(control, switchState);
-                    }
-                } catch (JSONException ignored) {
-                    for (Switch control : nativeSwitches.values()) control.setVisibility(View.GONE);
-                }
-            });
-        }
-    }
-
-    private void updateWebSafeArea() {
-        if (webView == null) return;
-        float density = getResources().getDisplayMetrics().density;
-        int topInsetCssPx = Math.round(topInsetPx / Math.max(density, 1f));
-        int bottomInsetCssPx = Math.round(bottomInsetPx / Math.max(density, 1f));
-        webView.evaluateJavascript(
-                "document.documentElement.style.setProperty('--native-top-inset', '" + topInsetCssPx + "px');" +
-                        "document.documentElement.style.setProperty('--native-bottom-inset', '" + bottomInsetCssPx + "px');",
-                null
-        );
-    }
-
-    @Override
-    public void onRequestPermissionsResult(
-            int requestCode,
-            String[] permissions,
-            int[] grantResults
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == LOCATION_REQUEST_CODE) {
-            loadWebApp();
-        }
-    }
-
-    private void handleBack() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            finish();
-        }
-    }
-
-    @Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_BACK && Build.VERSION.SDK_INT < 33) {
-            handleBack();
-            return true;
-        }
-        return super.onKeyDown(keyCode, event);
-    }
-
-    @Override
-    protected void onDestroy() {
-        try { unregisterReceiver(quickTimerStateReceiver); } catch (IllegalArgumentException ignored) { }
-        if (webView != null) {
-            webView.destroy();
-        }
-        super.onDestroy();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        AlarmScheduler.syncAll(this);
-        QuickTimerScheduler.syncAll(this);
-        requestAppPermissions(AlarmStore.getStateJson(this));
-        if (webView != null) webView.postDelayed(this::notifyWebState, 150);
+        if (!editing && "timers".equals(currentPage)) showTimers();
+        if (!editing && "alarms".equals(currentPage)) showAlarms();
+        if (ticker == null) {
+            ticker = new Runnable() {
+                @Override public void run() {
+                    if (!editing && "timers".equals(currentPage)) showTimers();
+                    handler.postDelayed(this, 1000L);
+                }
+            };
+            handler.post(ticker);
+        }
     }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (ticker != null) {
+            handler.removeCallbacks(ticker);
+            ticker = null;
+        }
+    }
+
+    private void buildShell() {
+        root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(PAGE);
+
+        LinearLayout toolbar = new LinearLayout(this);
+        toolbar.setGravity(Gravity.CENTER_VERTICAL);
+        toolbar.setPadding(dp(22), dp(12), dp(18), dp(12));
+        toolbar.setBackgroundColor(Color.WHITE);
+        pageTitle = text("Alarms", 32, INK);
+        toolbar.addView(pageTitle, new LinearLayout.LayoutParams(0, dp(64), 1));
+        root.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(88)));
+
+        content = new FrameLayout(this);
+        root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
+        bottomNav = buildBottomNav();
+        root.addView(bottomNav, new LinearLayout.LayoutParams(-1, dp(82)));
+        setContentView(root);
+    }
+
+    private LinearLayout buildBottomNav() {
+        LinearLayout nav = new LinearLayout(this);
+        nav.setGravity(Gravity.CENTER);
+        nav.setBackgroundColor(Color.WHITE);
+        nav.setPadding(0, dp(4), 0, dp(4));
+        addNavButton(nav, "◷\nMulti-Timer", "timers");
+        addNavButton(nav, "☰\nAlarms", "alarms");
+        addNavButton(nav, "⊙\nCounter", "counter");
+        addNavButton(nav, "☁\nWeather", "weather");
+        return nav;
+    }
+
+    private void addNavButton(LinearLayout nav, String label, String page) {
+        Button button = new Button(this);
+        button.setText(label);
+        button.setTextSize(13);
+        button.setTextColor(INK);
+        button.setAllCaps(false);
+        button.setGravity(Gravity.CENTER);
+        button.setBackgroundColor(Color.TRANSPARENT);
+        button.setOnClickListener(view -> {
+            if ("timers".equals(page)) showTimers();
+            else if ("alarms".equals(page)) showAlarms();
+            else if ("counter".equals(page)) showCounter();
+            else showWeather();
+        });
+        nav.addView(button, new LinearLayout.LayoutParams(0, -1, 1));
+    }
+
+    private void setPage(String title, View pageView, boolean showNavigation) {
+        pageTitle.setText(title);
+        content.removeAllViews();
+        content.addView(pageView, new FrameLayout.LayoutParams(-1, -1));
+        bottomNav.setVisibility(showNavigation ? View.VISIBLE : View.GONE);
+        editing = !showNavigation;
+    }
+
+    private ScrollView scroll(View child) {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(PAGE);
+        scroll.addView(child, new ScrollView.LayoutParams(-1, -2));
+        return scroll;
+    }
+
+    private LinearLayout pageColumn() {
+        LinearLayout column = new LinearLayout(this);
+        column.setOrientation(LinearLayout.VERTICAL);
+        column.setPadding(dp(16), dp(16), dp(16), dp(24));
+        return column;
+    }
+
+    private void showAlarms() {
+        currentPage = "alarms";
+        Button add = headerButton("+");
+        add.setOnClickListener(view -> showEditAlarm(defaultAlarm()));
+        resetToolbar("Alarms", add);
+        LinearLayout column = pageColumn();
+        JSONArray alarms = AlarmStore.getAlarms(this);
+        if (alarms.length() == 0) {
+            column.addView(empty("No alarms yet.\nUse + to create your first alarm."), new LinearLayout.LayoutParams(-1, dp(260)));
+        } else {
+            for (int index = 0; index < alarms.length(); index += 1) {
+                JSONObject alarm = alarms.optJSONObject(index);
+                if (alarm != null) column.addView(alarmCard(alarm));
+            }
+        }
+        setPage("Alarms", scroll(column), true);
+    }
+
+    private void resetToolbar(String title, View action) {
+        ViewGroup toolbar = (ViewGroup) root.getChildAt(0);
+        toolbar.removeAllViews();
+        pageTitle.setText(title);
+        toolbar.addView(pageTitle, new LinearLayout.LayoutParams(0, dp(64), 1));
+        if (action != null) toolbar.addView(action, new LinearLayout.LayoutParams(dp(58), dp(58)));
+    }
+
+    private LinearLayout alarmCard(JSONObject alarm) {
+        LinearLayout card = card();
+        LinearLayout top = row();
+        String start = alarm.optString("startTime", "06:00");
+        String frequency = alarm.optString("frequency", "several");
+        String range = start;
+        if (!"once".equals(frequency)) range += " – " + alarm.optString("endTime", "18:00");
+        Button time = plainButton(range, 22);
+        time.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
+        time.setOnClickListener(view -> showEditAlarm(alarm));
+        top.addView(time, new LinearLayout.LayoutParams(0, dp(58), 1));
+        Button settings = headerButton("⚙");
+        settings.setTextSize(25);
+        settings.setContentDescription("Edit alarm");
+        settings.setOnClickListener(view -> showEditAlarm(alarm));
+        top.addView(settings, new LinearLayout.LayoutParams(dp(58), dp(58)));
+        Switch enabled = new Switch(this);
+        enabled.setText(alarm.optBoolean("enabled", false) ? "ON" : "OFF");
+        enabled.setTextSize(14);
+        enabled.setTextColor(INK);
+        enabled.setChecked(alarm.optBoolean("enabled", false));
+        enabled.setContentDescription("Enable alarm");
+        enabled.setOnCheckedChangeListener((button, checked) -> {
+            button.setText(checked ? "ON" : "OFF");
+            AlarmStore.setEnabled(this, alarm.optString("id"), checked);
+            AlarmScheduler.syncAll(this);
+        });
+        top.addView(enabled, new LinearLayout.LayoutParams(dp(92), dp(58)));
+        card.addView(top);
+
+        LinearLayout detail = row();
+        TextView name = text(alarm.optString("name", "New alarm"), 18, MUTED);
+        detail.addView(name, new LinearLayout.LayoutParams(0, dp(44), 1));
+        String frequencyText = "once".equals(frequency) ? "Single Alarm" : "Repeat Alarm";
+        detail.addView(text(frequencyText, 16, MUTED), new LinearLayout.LayoutParams(-2, dp(44)));
+        card.addView(detail);
+
+        LinearLayout days = row();
+        JSONArray selected = alarm.optJSONArray("repeatDays");
+        for (int index = 0; index < DAY_CODES.length; index += 1) {
+            ToggleButton day = dayButton(DAY_LABELS[index]);
+            day.setTag(DAY_CODES[index]);
+            day.setChecked(hasDay(selected, DAY_CODES[index]));
+            day.setOnClickListener(view -> {
+                try {
+                    JSONArray updated = new JSONArray();
+                    for (int dayIndex = 0; dayIndex < DAY_CODES.length; dayIndex += 1) {
+                        View candidate = days.findViewWithTag(DAY_CODES[dayIndex]);
+                        if (candidate instanceof ToggleButton && ((ToggleButton) candidate).isChecked()) updated.put(DAY_CODES[dayIndex]);
+                    }
+                    alarm.put("repeatDays", updated);
+                    AlarmStore.upsert(this, alarm);
+                    AlarmScheduler.syncAll(this);
+                } catch (JSONException ignored) { }
+            });
+            days.addView(day, new LinearLayout.LayoutParams(0, dp(48), 1));
+        }
+        card.addView(days);
+        return card;
+    }
+
+    private void showEditAlarm(JSONObject alarm) {
+        try { editingAlarm = new JSONObject(alarm.toString()); } catch (JSONException error) { return; }
+        currentPage = "alarms";
+        LinearLayout toolbar = (LinearLayout) root.getChildAt(0);
+        while (toolbar.getChildCount() > 0) toolbar.removeViewAt(0);
+        Button back = headerButton("‹");
+        back.setTextSize(38);
+        back.setOnClickListener(view -> showAlarms());
+        toolbar.addView(back, new LinearLayout.LayoutParams(dp(58), dp(64)));
+        TextView title = text("Edit Alarm", 29, INK);
+        title.setGravity(Gravity.CENTER);
+        toolbar.addView(title, new LinearLayout.LayoutParams(0, dp(64), 1));
+        Button delete = headerButton("Delete");
+        delete.setTextSize(14);
+        delete.setOnClickListener(view -> {
+            AlarmScheduler.cancelAlarm(this, editingAlarm.optString("id"));
+            AlarmStore.remove(this, editingAlarm.optString("id"));
+            AlarmScheduler.syncAll(this);
+            showAlarms();
+        });
+        toolbar.addView(delete, new LinearLayout.LayoutParams(dp(82), dp(58)));
+
+        LinearLayout column = pageColumn();
+        column.addView(sectionTitle("Alarm type"));
+        RadioGroup type = new RadioGroup(this);
+        type.setOrientation(RadioGroup.HORIZONTAL);
+        RadioButton repeat = radio("Repeat Alarm");
+        RadioButton single = radio("Single Alarm");
+        type.addView(repeat, new RadioGroup.LayoutParams(0, dp(56), 1));
+        type.addView(single, new RadioGroup.LayoutParams(0, dp(56), 1));
+        type.check("once".equals(editingAlarm.optString("frequency")) ? single.getId() : repeat.getId());
+        column.addView(type, new LinearLayout.LayoutParams(-1, dp(64)));
+
+        column.addView(sectionTitle("Alarm name"));
+        EditText name = edit(editingAlarm.optString("name", "New alarm"), "Alarm name");
+        column.addView(name, fieldParams());
+
+        column.addView(sectionTitle("Repeat days"));
+        LinearLayout days = row();
+        JSONArray selected = editingAlarm.optJSONArray("repeatDays");
+        for (int index = 0; index < DAY_CODES.length; index += 1) {
+            ToggleButton day = dayButton(DAY_LABELS[index]);
+            day.setTag(DAY_CODES[index]);
+            day.setChecked(hasDay(selected, DAY_CODES[index]));
+            days.addView(day, new LinearLayout.LayoutParams(0, dp(54), 1));
+        }
+        column.addView(days);
+
+        column.addView(sectionTitle("Alarm time"));
+        LinearLayout times = row();
+        Button start = plainButton(editingAlarm.optString("startTime", "06:00"), 19);
+        Button end = plainButton(editingAlarm.optString("endTime", "18:00"), 19);
+        times.addView(start, new LinearLayout.LayoutParams(0, dp(56), 1));
+        times.addView(end, new LinearLayout.LayoutParams(0, dp(56), 1));
+        column.addView(times);
+
+        TextView intervalTitle = sectionTitle("Alarm interval (minutes)");
+        column.addView(intervalTitle);
+        EditText interval = edit(String.valueOf(Math.max(1, editingAlarm.optInt("intervalMinutes", 60))), "Minutes between occurrences");
+        interval.setInputType(InputType.TYPE_CLASS_NUMBER);
+        column.addView(interval, fieldParams());
+
+        column.addView(sectionTitle("Alarm sound"));
+        Spinner sound = spinner(new String[]{"Classic", "Gentle", "Pulse", "Chime", "Digital", "Wake-up", "Loud alarm"});
+        String[] soundCodes = {"classic", "gentle", "pulse", "chime", "digital", "wake-up", "loud-alarm"};
+        sound.setSelection(indexOf(soundCodes, editingAlarm.optString("sound", "classic")));
+        column.addView(sound, fieldParams());
+
+        column.addView(sectionTitle("Alarm duration"));
+        Spinner duration = spinner(new String[]{"30 seconds", "60 seconds", "120 seconds", "300 seconds"});
+        int durationValue = editingAlarm.optInt("durationSeconds", 60);
+        duration.setSelection(durationValue == 30 ? 0 : durationValue == 120 ? 2 : durationValue == 300 ? 3 : 1);
+        column.addView(duration, fieldParams());
+
+        column.addView(sectionTitle("Snooze"));
+        Switch snooze = new Switch(this);
+        snooze.setText("Allow snooze");
+        snooze.setTextSize(17);
+        snooze.setChecked(editingAlarm.optBoolean("snoozeEnabled", true));
+        column.addView(snooze, new LinearLayout.LayoutParams(-1, dp(56)));
+        EditText sequence = edit(sequenceText(editingAlarm.optJSONArray("snoozeSequenceMinutes")), "Snooze minutes, e.g. 25,15,10,5");
+        column.addView(sequence, fieldParams());
+
+        column.addView(sectionTitle("Enable alarm"));
+        Switch enable = new Switch(this);
+        enable.setText("Enabled");
+        enable.setTextSize(17);
+        enable.setChecked(editingAlarm.optBoolean("enabled", true));
+        column.addView(enable, new LinearLayout.LayoutParams(-1, dp(56)));
+
+        Button save = wideButton("Save alarm");
+        save.setOnClickListener(view -> {
+            try {
+                editingAlarm.put("name", safeName(name.getText().toString(), "New alarm"));
+                boolean repeatMode = type.getCheckedRadioButtonId() == repeat.getId();
+                editingAlarm.put("frequency", repeatMode ? "several" : "once");
+                JSONArray updatedDays = new JSONArray();
+                for (int index = 0; index < DAY_CODES.length; index += 1) {
+                    View candidate = days.findViewWithTag(DAY_CODES[index]);
+                    if (candidate instanceof ToggleButton && ((ToggleButton) candidate).isChecked()) updatedDays.put(DAY_CODES[index]);
+                }
+                editingAlarm.put("repeatDays", updatedDays.length() == 0 ? new JSONArray().put("MO") : updatedDays);
+                editingAlarm.put("startTime", start.getText().toString());
+                editingAlarm.put("endTime", end.getText().toString());
+                editingAlarm.put("intervalMinutes", clampInt(interval.getText().toString(), 1, 1440, 60));
+                editingAlarm.put("sound", soundCodes[sound.getSelectedItemPosition()]);
+                editingAlarm.put("durationSeconds", new int[]{30, 60, 120, 300}[duration.getSelectedItemPosition()]);
+                editingAlarm.put("snoozeEnabled", snooze.isChecked());
+                editingAlarm.put("snoozeSequenceMinutes", parseSequence(sequence.getText().toString()));
+                editingAlarm.put("enabled", enable.isChecked());
+                AlarmStore.upsert(this, editingAlarm);
+                AlarmScheduler.syncAll(this);
+                showAlarms();
+            } catch (JSONException ignored) { }
+        });
+        column.addView(save, new LinearLayout.LayoutParams(-1, dp(62)));
+
+        start.setOnClickListener(view -> chooseTime(start, start.getText().toString()));
+        end.setOnClickListener(view -> chooseTime(end, end.getText().toString()));
+        CompoundButton.OnCheckedChangeListener typeListener = (button, checked) -> {
+            boolean repeatMode = type.getCheckedRadioButtonId() == repeat.getId();
+            end.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
+            interval.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
+        };
+        repeat.setOnCheckedChangeListener(typeListener);
+        single.setOnCheckedChangeListener(typeListener);
+        boolean repeatMode = !"once".equals(editingAlarm.optString("frequency"));
+        end.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
+        intervalTitle.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
+        interval.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
+        setPage("Edit Alarm", scroll(column), false);
+    }
+
+    private void showTimers() {
+        currentPage = "timers";
+        Button add = headerButton("+");
+        resetToolbar("Multi-Timer", add);
+        LinearLayout column = pageColumn();
+        EditText name = edit("", "Timer Name");
+        column.addView(name, fieldParams());
+        LinearLayout controls = row();
+        Spinner minutes = spinner(timerMinuteLabels());
+        EditText custom = edit("", "Custom minutes (1–43200)");
+        custom.setInputType(InputType.TYPE_CLASS_NUMBER);
+        custom.setVisibility(View.GONE);
+        minutes.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) { custom.setVisibility(position == 60 ? View.VISIBLE : View.GONE); }
+            @Override public void onNothingSelected(android.widget.AdapterView<?> parent) { }
+        });
+        controls.addView(minutes, new LinearLayout.LayoutParams(0, dp(58), 1));
+        Button start = wideButton("Start timer");
+        controls.addView(start, new LinearLayout.LayoutParams(0, dp(58), 1));
+        column.addView(controls);
+        column.addView(custom, fieldParams());
+        column.addView(sectionTitle("Timers"));
+        JSONArray timers = QuickTimerStore.getTimers(this);
+        if (timers.length() == 0) column.addView(empty("No timers running."), new LinearLayout.LayoutParams(-1, dp(220)));
+        for (int index = 0; index < timers.length(); index += 1) {
+            JSONObject timer = timers.optJSONObject(index);
+            if (timer != null) column.addView(timerCard(timer));
+        }
+        start.setOnClickListener(view -> {
+            int selected = minutes.getSelectedItemPosition();
+            int value = selected == 60 ? clampInt(custom.getText().toString(), 1, (int) MAX_TIMER_MINUTES, 25) : selected + 1;
+            String label = safeName(name.getText().toString(), "Timer");
+            try {
+                JSONObject timer = new JSONObject()
+                        .put("id", UUID.randomUUID().toString())
+                        .put("label", label)
+                        .put("totalSeconds", value * 60L)
+                        .put("remainingSeconds", value * 60L)
+                        .put("endsAtMs", System.currentTimeMillis() + value * 60_000L)
+                        .put("state", "running")
+                        .put("snoozeCount", 0);
+                JSONArray updated = QuickTimerStore.getTimers(this);
+                if (updated.length() < 10) {
+                    updated.put(timer);
+                    QuickTimerStore.replace(this, updated);
+                    QuickTimerScheduler.syncAll(this);
+                    AlarmStore.appendHistory(this, timer, "started");
+                    showTimers();
+                }
+            } catch (JSONException ignored) { }
+        });
+        setPage("Multi-Timer", scroll(column), true);
+    }
+
+    private LinearLayout timerCard(JSONObject timer) {
+        LinearLayout card = card();
+        card.addView(text(timer.optString("label", "Timer"), 19, INK));
+        card.addView(text(timer.optString("state", "running"), 15, MUTED));
+        TextView countdown = text(formatRemaining(timer), 30, INK);
+        countdown.setGravity(Gravity.RIGHT);
+        card.addView(countdown, new LinearLayout.LayoutParams(-1, dp(48)));
+        LinearLayout actions = row();
+        Button pause = plainButton("running".equals(timer.optString("state")) ? "Pause" : "Resume", 16);
+        Button stop = plainButton("Stop", 16);
+        actions.addView(pause, new LinearLayout.LayoutParams(0, dp(52), 1));
+        actions.addView(stop, new LinearLayout.LayoutParams(0, dp(52), 1));
+        pause.setOnClickListener(view -> toggleTimer(timer));
+        stop.setOnClickListener(view -> { QuickTimerActionReceiver.stop(this, timer.optString("id")); showTimers(); });
+        card.addView(actions);
+        return card;
+    }
+
+    private void toggleTimer(JSONObject timer) {
+        try {
+            if ("running".equals(timer.optString("state"))) {
+                long remaining = Math.max(0L, (timer.optLong("endsAtMs", 0) - System.currentTimeMillis()) / 1000L);
+                timer.put("remainingSeconds", remaining);
+                timer.put("state", "paused");
+                timer.remove("endsAtMs");
+            } else {
+                long remaining = Math.max(1L, timer.optLong("remainingSeconds", 1));
+                timer.put("state", "running");
+                timer.put("endsAtMs", System.currentTimeMillis() + remaining * 1000L);
+            }
+            QuickTimerStore.update(this, timer);
+            QuickTimerScheduler.syncAll(this);
+            showTimers();
+        } catch (JSONException ignored) { }
+    }
+
+    private void showCounter() {
+        currentPage = "counter";
+        Button add = headerButton("+");
+        add.setOnClickListener(view -> addCounter());
+        resetToolbar("Counter", add);
+        LinearLayout column = pageColumn();
+        JSONArray counters = CounterStore.get(this);
+        if (counters.length() == 0) column.addView(empty("No counters yet.\nUse + to create one."), new LinearLayout.LayoutParams(-1, dp(260)));
+        for (int index = 0; index < counters.length(); index += 1) {
+            JSONObject counter = counters.optJSONObject(index);
+            if (counter != null) column.addView(counterCard(counter));
+        }
+        setPage("Counter", scroll(column), true);
+    }
+
+    private void addCounter() {
+        EditText input = edit("", "Counter name");
+        LinearLayout wrap = new LinearLayout(this);
+        wrap.setPadding(dp(24), dp(10), dp(24), 0);
+        wrap.addView(input, new LinearLayout.LayoutParams(-1, dp(58)));
+        new android.app.AlertDialog.Builder(this).setTitle("New counter").setView(wrap)
+                .setPositiveButton("Add", (dialog, which) -> { CounterStore.add(this, input.getText().toString()); showCounter(); })
+                .setNegativeButton("Cancel", null).show();
+    }
+
+    private LinearLayout counterCard(JSONObject counter) {
+        LinearLayout card = card();
+        LinearLayout heading = row();
+        EditText name = edit(counter.optString("name", "Counter"), "Counter name");
+        heading.addView(name, new LinearLayout.LayoutParams(0, dp(58), 1));
+        Button remove = headerButton("×");
+        remove.setOnClickListener(view -> { CounterStore.remove(this, counter.optString("id")); showCounter(); });
+        heading.addView(remove, new LinearLayout.LayoutParams(dp(54), dp(58)));
+        name.setOnFocusChangeListener((view, focused) -> { if (!focused) saveCounterName(counter, name); });
+        card.addView(heading);
+        TextView value = text(String.valueOf(counter.optLong("value", 0)), 48, INK);
+        value.setGravity(Gravity.CENTER);
+        card.addView(value, new LinearLayout.LayoutParams(-1, dp(86)));
+        LinearLayout controls = row();
+        Button minus = wideButton("−");
+        Button reset = plainButton("Reset", 16);
+        Button plus = wideButton("+");
+        controls.addView(minus, new LinearLayout.LayoutParams(0, dp(64), 1));
+        controls.addView(reset, new LinearLayout.LayoutParams(0, dp(64), 1));
+        controls.addView(plus, new LinearLayout.LayoutParams(0, dp(64), 1));
+        minus.setOnClickListener(view -> changeCounter(counter, -1));
+        plus.setOnClickListener(view -> changeCounter(counter, 1));
+        reset.setOnClickListener(view -> changeCounter(counter, 0));
+        card.addView(controls);
+        return card;
+    }
+
+    private void saveCounterName(JSONObject counter, EditText input) {
+        try { counter.put("name", safeName(input.getText().toString(), "Counter")); CounterStore.update(this, counter); } catch (JSONException ignored) { }
+    }
+
+    private void changeCounter(JSONObject counter, long delta) {
+        try { counter.put("value", delta == 0 ? 0 : counter.optLong("value", 0) + delta); CounterStore.update(this, counter); showCounter(); } catch (JSONException ignored) { }
+    }
+
+    private void showWeather() {
+        currentPage = "weather";
+        resetToolbar("Weather", null);
+        LinearLayout column = pageColumn();
+        column.addView(sectionTitle("Local weather"));
+        TextView status = text("Use your GPS location to request a forecast.", 16, MUTED);
+        column.addView(status);
+        Button locate = wideButton("Use my GPS location");
+        column.addView(locate, new LinearLayout.LayoutParams(-1, dp(58)));
+        LinearLayout forecast = card();
+        forecast.addView(text("No forecast loaded", 24, INK));
+        column.addView(forecast);
+        column.addView(text("Open-Meteo", 14, MUTED));
+        locate.setOnClickListener(view -> requestWeather(status, forecast));
+        setPage("Weather", scroll(column), true);
+    }
+
+    private void requestWeather(TextView status, LinearLayout forecast) {
+        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_REQUEST);
+            status.setText("Allow location access, then tap again.");
+            return;
+        }
+        LocationManager manager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        Location location = null;
+        try {
+            location = manager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            if (location == null) location = manager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+        } catch (SecurityException ignored) { }
+        if (location == null) {
+            status.setText("Waiting for a location fix…");
+            try {
+                manager.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, new LocationListener() {
+                    @Override public void onLocationChanged(Location result) { loadWeather(result, status, forecast); }
+                }, Looper.getMainLooper());
+            } catch (Exception ignored) { status.setText("Location is not available."); }
+            return;
+        }
+        loadWeather(location, status, forecast);
+    }
+
+    private void loadWeather(Location location, TextView status, LinearLayout forecast) {
+        status.setText("Loading forecast…");
+        new Thread(() -> {
+            try {
+                String query = "https://api.open-meteo.com/v1/forecast?latitude=" + location.getLatitude()
+                        + "&longitude=" + location.getLongitude()
+                        + "&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m"
+                        + "&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=3&timezone=auto";
+                HttpURLConnection connection = (HttpURLConnection) new URL(query).openConnection();
+                connection.setConnectTimeout(10000);
+                connection.setReadTimeout(10000);
+                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                StringBuilder body = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) body.append(line);
+                reader.close();
+                JSONObject json = new JSONObject(body.toString());
+                JSONObject current = json.optJSONObject("current");
+                final String summary = String.format(Locale.UK, "%.1f°C\n%s\nWind %.1f km/h  •  Humidity %.0f%%\n\n3-day forecast available", current == null ? 0 : current.optDouble("temperature_2m"), weatherCode(current == null ? 0 : current.optInt("weather_code")), current == null ? 0 : current.optDouble("wind_speed_10m"), current == null ? 0 : current.optDouble("relative_humidity_2m"));
+                runOnUiThread(() -> { status.setText("GPS connected"); forecast.removeAllViews(); forecast.addView(text(summary, 21, INK)); });
+            } catch (Exception error) {
+                runOnUiThread(() -> status.setText("Forecast unavailable. Check your connection."));
+            }
+        }).start();
+    }
+
+    private String weatherCode(int code) {
+        if (code == 0) return "Clear sky";
+        if (code <= 3) return "Partly cloudy";
+        if (code <= 48) return "Foggy";
+        if (code <= 67) return "Rain";
+        if (code <= 77) return "Snow";
+        if (code <= 82) return "Showers";
+        return "Thunderstorms";
+    }
+
+    private JSONObject defaultAlarm() {
+        JSONObject alarm = new JSONObject();
+        JSONArray days = new JSONArray();
+        for (String code : DAY_CODES) days.put(code);
+        try {
+            alarm.put("id", UUID.randomUUID().toString());
+            alarm.put("frequency", "several");
+            alarm.put("repeatDays", days);
+            alarm.put("startTime", "06:00");
+            alarm.put("endTime", "18:00");
+            alarm.put("intervalMinutes", 60);
+            alarm.put("name", "New alarm");
+            alarm.put("sound", "classic");
+            alarm.put("volume", 1.0);
+            alarm.put("durationSeconds", 60);
+            alarm.put("snoozeEnabled", true);
+            alarm.put("snoozeSequenceMinutes", new JSONArray().put(25).put(15).put(10).put(5));
+            alarm.put("afterSnoozeExhausted", "dismiss");
+            alarm.put("enabled", true);
+        } catch (JSONException ignored) { }
+        return alarm;
+    }
+
+    private void chooseTime(Button target, String value) {
+        int hour = 6;
+        int minute = 0;
+        try { String[] parts = value.split(":"); hour = Integer.parseInt(parts[0]); minute = Integer.parseInt(parts[1]); } catch (Exception ignored) { }
+        new TimePickerDialog(this, (view, selectedHour, selectedMinute) -> target.setText(String.format(Locale.UK, "%02d:%02d", selectedHour, selectedMinute)), hour, minute, true).show();
+    }
+
+    private String[] timerMinuteLabels() {
+        String[] values = new String[61];
+        for (int index = 0; index < 60; index += 1) values[index] = (index + 1) + " minutes";
+        values[60] = "Custom…";
+        return values;
+    }
+
+    private String formatRemaining(JSONObject timer) {
+        long seconds = timer.optLong("remainingSeconds", 0);
+        if ("running".equals(timer.optString("state"))) seconds = Math.max(0, (timer.optLong("endsAtMs", 0) - System.currentTimeMillis()) / 1000L);
+        long hours = seconds / 3600;
+        long minutes = (seconds % 3600) / 60;
+        long remainder = seconds % 60;
+        return String.format(Locale.UK, "%02d:%02d:%02d", hours, minutes, remainder);
+    }
+
+    private int clampInt(String value, int min, int max, int fallback) {
+        try { return Math.max(min, Math.min(max, Integer.parseInt(value.trim()))); } catch (Exception ignored) { return fallback; }
+    }
+
+    private JSONArray parseSequence(String value) {
+        JSONArray result = new JSONArray();
+        String[] pieces = value.split(",");
+        for (String piece : pieces) {
+            int minutes = clampInt(piece, 1, 1440, 0);
+            if (minutes > 0) result.put(minutes);
+        }
+        return result.length() == 0 ? new JSONArray().put(25).put(15).put(10).put(5) : result;
+    }
+
+    private String sequenceText(JSONArray values) {
+        if (values == null || values.length() == 0) return "25, 15, 10, 5";
+        StringBuilder result = new StringBuilder();
+        for (int index = 0; index < values.length(); index += 1) {
+            if (index > 0) result.append(", ");
+            result.append(values.optInt(index));
+        }
+        return result.toString();
+    }
+
+    private boolean hasDay(JSONArray days, String code) {
+        if (days == null) return false;
+        for (int index = 0; index < days.length(); index += 1) if (code.equals(days.optString(index))) return true;
+        return false;
+    }
+
+    private int indexOf(String[] values, String target) {
+        for (int index = 0; index < values.length; index += 1) if (values[index].equals(target)) return index;
+        return 0;
+    }
+
+    private String safeName(String value, String fallback) { return value == null || value.trim().isEmpty() ? fallback : value.trim(); }
+
+    private LinearLayout card() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(16), dp(14), dp(16), dp(14));
+        android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
+        background.setColor(Color.WHITE);
+        background.setCornerRadius(dp(18));
+        card.setBackground(background);
+        card.setElevation(dp(2));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
+        params.setMargins(0, 0, 0, dp(14));
+        card.setLayoutParams(params);
+        return card;
+    }
+
+    private LinearLayout row() { LinearLayout row = new LinearLayout(this); row.setGravity(Gravity.CENTER_VERTICAL); return row; }
+
+    private TextView sectionTitle(String value) {
+        TextView title = text(value, 20, INK);
+        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        title.setPadding(0, dp(18), 0, dp(8));
+        return title;
+    }
+
+    private TextView empty(String value) { TextView empty = text(value, 20, MUTED); empty.setGravity(Gravity.CENTER); return empty; }
+
+    private TextView text(String value, float size, int color) { TextView view = new TextView(this); view.setText(value); view.setTextSize(size); view.setTextColor(color); view.setGravity(Gravity.CENTER_VERTICAL); return view; }
+
+    private EditText edit(String value, String hint) { EditText input = new EditText(this); input.setText(value); input.setHint(hint); input.setTextSize(18); input.setTextColor(INK); input.setHintTextColor(MUTED); input.setSingleLine(true); input.setPadding(dp(12), 0, dp(12), 0); return input; }
+
+    private LinearLayout.LayoutParams fieldParams() { LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(58)); params.setMargins(0, 0, 0, dp(4)); return params; }
+
+    private Button headerButton(String value) { Button button = plainButton(value, 22); button.setMinWidth(0); button.setPadding(0, 0, 0, 0); return button; }
+
+    private Button plainButton(String value, float size) { Button button = new Button(this); button.setText(value); button.setTextSize(size); button.setTextColor(INK); button.setAllCaps(false); button.setBackgroundColor(Color.TRANSPARENT); return button; }
+
+    private Button wideButton(String value) { Button button = plainButton(value, 18); button.setTypeface(null, android.graphics.Typeface.BOLD); button.setBackground(outline()); return button; }
+
+    private android.graphics.drawable.Drawable outline() { android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable(); drawable.setColor(Color.WHITE); drawable.setStroke(dp(2), INK); drawable.setCornerRadius(dp(24)); return drawable; }
+
+    private ToggleButton dayButton(String label) { ToggleButton button = new ToggleButton(this); button.setTextOn(label); button.setTextOff(label); button.setTextSize(15); button.setTextColor(INK); button.setAllCaps(false); return button; }
+
+    private RadioButton radio(String value) { RadioButton radio = new RadioButton(this); radio.setId(View.generateViewId()); radio.setText(value); radio.setTextSize(15); radio.setTextColor(INK); return radio; }
+
+    private Spinner spinner(String[] values) { Spinner spinner = new Spinner(this); spinner.setAdapter(new ArrayAdapter<String>(this, android.R.layout.simple_spinner_dropdown_item, values)); return spinner; }
+
+    private int dp(int value) { return (int) (value * getResources().getDisplayMetrics().density + 0.5f); }
 }

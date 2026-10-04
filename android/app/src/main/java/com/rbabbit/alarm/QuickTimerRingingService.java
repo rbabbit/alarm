@@ -14,7 +14,7 @@ import androidx.annotation.Nullable;
 
 import org.json.JSONObject;
 
-/** Keeps a Multi-Timer audible after the WebView is backgrounded or closed. */
+/** Keeps a Multi-Timer audible after the native app is backgrounded or closed. */
 public final class QuickTimerRingingService extends Service {
     private final Handler handler = new Handler();
     private MediaPlayer player;

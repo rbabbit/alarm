@@ -17,7 +17,7 @@ import androidx.annotation.Nullable;
 import org.json.JSONObject;
 
 
-/** Plays the alarm sound for the configured duration outside the WebView. */
+/** Plays the alarm sound for the configured duration in the native Android app. */
 public final class AlarmRingingService extends Service {
     private static final int SAMPLE_RATE = 44_100;
     private static final int WAVE_SINE = 0;

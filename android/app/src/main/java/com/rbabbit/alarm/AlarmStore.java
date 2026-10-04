@@ -90,6 +90,51 @@ public final class AlarmStore {
         prefs(context).edit().putString(ALARMS, alarms.toString()).apply();
     }
 
+    public static synchronized void upsert(Context context, JSONObject replacement) {
+        if (replacement == null) return;
+        String alarmId = replacement.optString("id");
+        if (alarmId.isEmpty()) return;
+        JSONArray alarms = readArray(context, ALARMS);
+        boolean found = false;
+        for (int index = 0; index < alarms.length(); index += 1) {
+            JSONObject alarm = alarms.optJSONObject(index);
+            if (alarm != null && alarmId.equals(alarm.optString("id"))) {
+                try {
+                    alarms.put(index, new JSONObject(replacement.toString()));
+                    found = true;
+                } catch (JSONException ignored) {
+                    return;
+                }
+                break;
+            }
+        }
+        if (!found) {
+            try {
+                alarms.put(new JSONObject(replacement.toString()));
+            } catch (JSONException ignored) {
+                return;
+            }
+        }
+        prefs(context).edit().putString(ALARMS, alarms.toString()).apply();
+    }
+
+    public static synchronized JSONObject remove(Context context, String alarmId) {
+        if (alarmId == null || alarmId.isEmpty()) return null;
+        JSONArray alarms = readArray(context, ALARMS);
+        JSONObject removed = null;
+        JSONArray remaining = new JSONArray();
+        for (int index = 0; index < alarms.length(); index += 1) {
+            JSONObject alarm = alarms.optJSONObject(index);
+            if (alarm != null && alarmId.equals(alarm.optString("id"))) {
+                removed = alarm;
+            } else if (alarm != null) {
+                remaining.put(alarm);
+            }
+        }
+        if (removed != null) prefs(context).edit().putString(ALARMS, remaining.toString()).apply();
+        return removed;
+    }
+
     public static synchronized void appendHistory(Context context, JSONObject alarm, String action) {
         if (alarm == null) return;
         JSONArray history = readArray(context, HISTORY);

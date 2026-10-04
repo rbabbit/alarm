@@ -6,12 +6,12 @@ Play Store title: **Kala Time – Alarm Clock**
 
 ## Current status
 
-This is the first foundation slice. It contains:
+The repository contains the browser foundation plus a native Android application. The Android application uses native views/widgets rather than a WebView for its current UI. It contains:
 
 - a deterministic scheduling core with an injected clock;
 - explicit schedule and snooze policies;
 - tests for one-shot, repeating, 24-hour-style interval schedules, and snooze progression;
-- a browser shell ready for the UI layer;
+- a browser shell for the web prototype;
 - research and architecture records so platform behavior is not guessed.
 
 ## Run
@@ -35,8 +35,8 @@ The browser's `file:` URL restrictions are intentionally avoided by using a loca
 
 ## Android Studio
 
-The Android wrapper is in [`android/`](./android). Open `C:\timerApp\android` in Android Studio to run it on a device or emulator. The wrapper mirrors enabled alarms into native exact-alarm delivery, handles reboot rescheduling and alarm notifications, and provides a native ringing screen with snooze and manual stop controls.
+The native Android app is in [`android/`](./android). Open `C:\timerApp\android` in Android Studio to run it on a device or emulator. It provides native alarms, a Multi-Timer, Counter, and GPS weather screen, while the existing AlarmManager/notification layer handles delivery when the app is closed.
 
 ## Important boundary
 
-The browser app remains a control surface and fallback; native background delivery is provided by the Android project. Exact alarms, notifications, and full-screen ringing remain subject to the permissions and OS policies documented in the research notes.
+The browser app remains a prototype/fallback. Native background delivery is provided by the Android project. Exact alarms, notifications, location, and foreground-service behavior remain subject to the permissions and OS policies documented in the research notes.
