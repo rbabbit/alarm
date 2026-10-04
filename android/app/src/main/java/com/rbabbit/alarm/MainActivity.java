@@ -717,7 +717,13 @@ public final class MainActivity extends Activity {
     }
 
     private void changeCounter(JSONObject counter, long delta) {
-        try { counter.put("value", delta == 0 ? 0 : counter.optLong("value", 0) + delta); CounterStore.update(this, counter); showCounter(); } catch (JSONException ignored) { }
+        try {
+            long current = counter.optLong("value", 0);
+            long next = delta == 0 ? 0 : Math.min(CounterStore.MAX_COUNTER_VALUE, current + delta);
+            counter.put("value", next);
+            CounterStore.update(this, counter);
+            showCounter();
+        } catch (JSONException ignored) { }
     }
 
     private void showWeather() {

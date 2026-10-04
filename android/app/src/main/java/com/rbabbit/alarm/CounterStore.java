@@ -14,6 +14,7 @@ public final class CounterStore {
     private static final String PREFS = "counter_native_state";
     private static final String COUNTERS = "counters";
     private static final int MAX_COUNTERS = 20;
+    static final long MAX_COUNTER_VALUE = 10_000L;
 
     private CounterStore() { }
 
@@ -23,7 +24,17 @@ public final class CounterStore {
 
     public static synchronized JSONArray get(Context context) {
         try {
-            return new JSONArray(prefs(context).getString(COUNTERS, "[]"));
+            JSONArray counters = new JSONArray(prefs(context).getString(COUNTERS, "[]"));
+            boolean changed = false;
+            for (int index = 0; index < counters.length(); index += 1) {
+                JSONObject counter = counters.optJSONObject(index);
+                if (counter != null && counter.optLong("value", 0L) > MAX_COUNTER_VALUE) {
+                    counter.put("value", MAX_COUNTER_VALUE);
+                    changed = true;
+                }
+            }
+            if (changed) save(context, counters);
+            return counters;
         } catch (JSONException ignored) {
             return new JSONArray();
         }
@@ -52,7 +63,10 @@ public final class CounterStore {
         for (int index = 0; index < counters.length(); index += 1) {
             JSONObject counter = counters.optJSONObject(index);
             if (counter != null && id.equals(counter.optString("id"))) {
-                try { counters.put(index, replacement); } catch (JSONException ignored) { return; }
+                try {
+                    if (replacement.optLong("value", 0L) > MAX_COUNTER_VALUE) replacement.put("value", MAX_COUNTER_VALUE);
+                    counters.put(index, replacement);
+                } catch (JSONException ignored) { return; }
                 save(context, counters);
                 return;
             }

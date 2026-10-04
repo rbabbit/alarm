@@ -10,6 +10,7 @@ const OPEN_METEO_ENDPOINT = "https://api.open-meteo.com/v1/forecast";
 const MAX_QUICK_TIMERS = 10;
 const MAX_CUSTOM_MINUTES = 30 * 24 * 60;
 const MAX_HISTORY = 100;
+const MAX_COUNTER_VALUE = 10_000;
 const alarmAudio = new AlarmAudio();
 
 let alarms = loadJson(ALARMS_KEY, []).map((alarm) => createAlarm({ ...alarm, alarmType: "auto" }));
@@ -51,7 +52,7 @@ function createCounter(name) {
 
 function normalizeCounter(counter) {
   if (!counter || typeof counter !== "object") return null;
-  const value = Number.isFinite(Number(counter.value)) ? Math.trunc(Number(counter.value)) : 0;
+  const value = Number.isFinite(Number(counter.value)) ? Math.min(MAX_COUNTER_VALUE, Math.trunc(Number(counter.value))) : 0;
   const step = Number.isFinite(Number(counter.step)) ? Math.max(1, Math.trunc(Number(counter.step))) : 1;
   return {
     id: String(counter.id || `counter-${crypto.randomUUID()}`),
@@ -499,7 +500,7 @@ function changeCounter(id, action) {
   const current = counters.find((counter) => counter.id === id);
   if (!current) return;
   const delta = action === "increment" ? current.step : action === "decrement" ? -current.step : 0;
-  updateCounter(id, { value: action === "reset" ? 0 : current.value + delta });
+  updateCounter(id, { value: action === "reset" ? 0 : Math.min(MAX_COUNTER_VALUE, current.value + delta) });
 }
 
 function addCounter() {
