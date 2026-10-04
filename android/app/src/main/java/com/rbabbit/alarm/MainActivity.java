@@ -736,7 +736,7 @@ public final class MainActivity extends Activity {
         weatherCoordinates = text("GPS coordinates unavailable", 15, MUTED);
         weatherCoordinates.setVisibility(View.GONE);
         weatherCoordinates.setPaintFlags(weatherCoordinates.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-        weatherCoordinates.setContentDescription("Open GPS coordinates in Google Maps");
+        weatherCoordinates.setContentDescription("Open GPS coordinates in a map app");
         weatherForecast.addView(weatherCoordinates, new LinearLayout.LayoutParams(-1, dp(36)));
         weatherForecast.addView(text("No forecast loaded", 22, INK));
         column.addView(weatherForecast);
@@ -889,7 +889,7 @@ public final class MainActivity extends Activity {
         forecast.removeAllViews();
         weatherCoordinates = text(String.format(Locale.UK, "GPS coordinates  %.4f, %.4f", latitude, longitude), 15, MUTED);
         weatherCoordinates.setPaintFlags(weatherCoordinates.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
-        weatherCoordinates.setContentDescription("Open GPS coordinates in Google Maps");
+        weatherCoordinates.setContentDescription("Open GPS coordinates in a map app");
         weatherCoordinates.setOnClickListener(view -> openGoogleMaps(latitude, longitude));
         forecast.addView(weatherCoordinates, new LinearLayout.LayoutParams(-1, dp(36)));
         forecast.addView(text("Current weather", 20, INK));
@@ -934,7 +934,9 @@ public final class MainActivity extends Activity {
 
     private void openGoogleMaps(double latitude, double longitude) {
         Intent maps = new Intent(Intent.ACTION_VIEW, Uri.parse("geo:" + latitude + "," + longitude + "?q=" + latitude + "," + longitude));
-        if (maps.resolveActivity(getPackageManager()) != null) startActivity(maps);
+        try {
+            startActivity(maps);
+        } catch (android.content.ActivityNotFoundException ignored) { }
     }
 
     private String weatherCode(int code) {
