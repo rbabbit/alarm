@@ -21,14 +21,21 @@ import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.ScrollView;
+import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.ToggleButton;
+
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -63,10 +70,13 @@ public final class MainActivity extends Activity {
     private Runnable ticker;
     private TextView weatherStatus;
     private LinearLayout weatherForecast;
+    private int weatherRequestGeneration;
+    private LinearLayout timerList;
 
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         getWindow().setStatusBarColor(Color.WHITE);
         getWindow().setNavigationBarColor(Color.WHITE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
@@ -94,7 +104,10 @@ public final class MainActivity extends Activity {
         if (ticker == null) {
             ticker = new Runnable() {
                 @Override public void run() {
-                    if (!editing && "timers".equals(currentPage)) showTimers();
+                    if (!editing && "timers".equals(currentPage)) {
+                        reconcileExpiredTimers();
+                        refreshTimerList();
+                    }
                     handler.postDelayed(this, 1000L);
                 }
             };
@@ -147,6 +160,22 @@ public final class MainActivity extends Activity {
         bottomNav = buildBottomNav();
         root.addView(bottomNav, new LinearLayout.LayoutParams(-1, dp(82)));
         setContentView(root);
+        ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
+            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
+            view.setPadding(0, bars.top, 0, Math.max(bars.bottom, ime.bottom));
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(root);
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (editing) {
+            showAlarms();
+        } else {
+            super.onBackPressed();
+        }
     }
 
     private LinearLayout buildBottomNav() {
@@ -154,14 +183,14 @@ public final class MainActivity extends Activity {
         nav.setGravity(Gravity.CENTER);
         nav.setBackgroundColor(Color.WHITE);
         nav.setPadding(0, dp(2), 0, dp(2));
-        addNavButton(nav, "◷", "Multi-Timer", "timers");
-        addNavButton(nav, "☰", "Alarms", "alarms");
-        addNavButton(nav, "⊙", "Counter", "counter");
-        addNavButton(nav, "☁", "Weather", "weather");
+        addNavButton(nav, com.rbabbit.alarm.R.drawable.ic_timer, "Multi-Timer", "timers");
+        addNavButton(nav, com.rbabbit.alarm.R.drawable.ic_list, "Alarms", "alarms");
+        addNavButton(nav, com.rbabbit.alarm.R.drawable.ic_counter, "Counter", "counter");
+        addNavButton(nav, com.rbabbit.alarm.R.drawable.ic_weather, "Weather", "weather");
         return nav;
     }
 
-    private void addNavButton(LinearLayout nav, String icon, String label, String page) {
+    private void addNavButton(LinearLayout nav, int icon, String label, String page) {
         LinearLayout button = new LinearLayout(this);
         button.setOrientation(LinearLayout.VERTICAL);
         button.setGravity(Gravity.CENTER);
@@ -169,8 +198,10 @@ public final class MainActivity extends Activity {
         button.setTag(page);
         button.setBackgroundColor("alarms".equals(page) ? Color.rgb(242, 242, 242) : Color.TRANSPARENT);
         button.setContentDescription(label);
-        TextView iconView = text(icon, 25, INK);
-        iconView.setGravity(Gravity.CENTER);
+        ImageView iconView = new ImageView(this);
+        iconView.setImageResource(icon);
+        iconView.setColorFilter(INK);
+        iconView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
         TextView labelView = text(label, 12, INK);
         labelView.setGravity(Gravity.CENTER);
         button.addView(iconView, new LinearLayout.LayoutParams(-1, dp(34)));
@@ -249,8 +280,7 @@ public final class MainActivity extends Activity {
         time.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
         time.setOnClickListener(view -> showEditAlarm(alarm));
         top.addView(time, new LinearLayout.LayoutParams(0, dp(58), 1));
-        Button settings = headerButton("⚙");
-        settings.setTextSize(25);
+        Button settings = headerButton("settings");
         settings.setContentDescription("Edit alarm");
         settings.setOnClickListener(view -> showEditAlarm(alarm));
         top.addView(settings, new LinearLayout.LayoutParams(dp(58), dp(58)));
@@ -305,14 +335,13 @@ public final class MainActivity extends Activity {
         currentPage = "alarms";
         LinearLayout toolbar = (LinearLayout) root.getChildAt(0);
         while (toolbar.getChildCount() > 0) toolbar.removeViewAt(0);
-        Button back = headerButton("‹");
-        back.setTextSize(38);
+        Button back = headerButton("back");
         back.setOnClickListener(view -> showAlarms());
         toolbar.addView(back, new LinearLayout.LayoutParams(dp(58), dp(64)));
         TextView title = text("Edit Alarm", 29, INK);
         title.setGravity(Gravity.CENTER);
         toolbar.addView(title, new LinearLayout.LayoutParams(0, dp(64), 1));
-        Button delete = headerButton("Delete");
+        Button delete = headerButton("delete");
         delete.setTextSize(14);
         delete.setOnClickListener(view -> {
             AlarmScheduler.cancelAlarm(this, editingAlarm.optString("id"));
@@ -337,7 +366,8 @@ public final class MainActivity extends Activity {
         EditText name = edit(editingAlarm.optString("name", "New alarm"), "Alarm name");
         column.addView(name, fieldParams());
 
-        column.addView(sectionTitle("Repeat days"));
+        TextView repeatDaysTitle = sectionTitle("Repeat days");
+        column.addView(repeatDaysTitle);
         LinearLayout days = row();
         JSONArray selected = editingAlarm.optJSONArray("repeatDays");
         for (int index = 0; index < DAY_CODES.length; index += 1) {
@@ -367,6 +397,12 @@ public final class MainActivity extends Activity {
         String[] soundCodes = {"classic", "gentle", "pulse", "chime", "digital", "wake-up", "loud-alarm"};
         sound.setSelection(indexOf(soundCodes, editingAlarm.optString("sound", "classic")));
         column.addView(sound, fieldParams());
+
+        column.addView(sectionTitle("Alarm volume"));
+        SeekBar volume = new SeekBar(this);
+        volume.setMax(100);
+        volume.setProgress((int) Math.round(Math.max(0.0, Math.min(1.0, editingAlarm.optDouble("volume", 1.0))) * 100));
+        column.addView(volume, fieldParams());
 
         column.addView(sectionTitle("Alarm duration"));
         Spinner duration = spinner(new String[]{"30 seconds", "60 seconds", "120 seconds", "300 seconds"});
@@ -407,11 +443,12 @@ public final class MainActivity extends Activity {
                     View candidate = days.findViewWithTag(DAY_CODES[index]);
                     if (candidate instanceof ToggleButton && ((ToggleButton) candidate).isChecked()) updatedDays.put(DAY_CODES[index]);
                 }
-                editingAlarm.put("repeatDays", updatedDays.length() == 0 ? new JSONArray().put("MO") : updatedDays);
+                editingAlarm.put("repeatDays", repeatMode ? (updatedDays.length() == 0 ? new JSONArray().put("MO") : updatedDays) : new JSONArray());
                 editingAlarm.put("startTime", start.getText().toString());
                 editingAlarm.put("endTime", end.getText().toString());
                 editingAlarm.put("intervalMinutes", clampInt(interval.getText().toString(), 1, 1440, 60));
                 editingAlarm.put("sound", soundCodes[sound.getSelectedItemPosition()]);
+                editingAlarm.put("volume", volume.getProgress() / 100.0);
                 editingAlarm.put("durationSeconds", new int[]{30, 60, 120, 300}[duration.getSelectedItemPosition()]);
                 editingAlarm.put("snoozeEnabled", snooze.isChecked());
                 editingAlarm.put("snoozeSequenceMinutes", parseSequence(sequence.getText().toString()));
@@ -427,12 +464,16 @@ public final class MainActivity extends Activity {
         end.setOnClickListener(view -> chooseTime(end, end.getText().toString()));
         RadioGroup.OnCheckedChangeListener typeListener = (group, checkedId) -> {
             boolean repeatMode = checkedId == repeat.getId();
+            repeatDaysTitle.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
+            days.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
             end.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
             intervalTitle.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
             interval.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
         };
         type.setOnCheckedChangeListener(typeListener);
         boolean repeatMode = !"once".equals(editingAlarm.optString("frequency"));
+        repeatDaysTitle.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
+        days.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
         end.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
         intervalTitle.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
         interval.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
@@ -456,23 +497,41 @@ public final class MainActivity extends Activity {
             @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) { custom.setVisibility(position == 60 ? View.VISIBLE : View.GONE); }
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) { }
         });
-        controls.addView(minutes, new LinearLayout.LayoutParams(0, dp(58), 1));
+        FrameLayout durationControl = new FrameLayout(this);
+        durationControl.addView(minutes, new FrameLayout.LayoutParams(-1, dp(58)));
+        durationControl.addView(custom, new FrameLayout.LayoutParams(-1, dp(58)));
+        controls.addView(durationControl, new LinearLayout.LayoutParams(0, dp(58), 1));
         Button start = wideButton("Start timer");
         controls.addView(start, new LinearLayout.LayoutParams(0, dp(58), 1));
         column.addView(controls);
-        column.addView(custom, fieldParams());
+        column.addView(sectionTitle("Timer sound"));
+        Spinner timerSound = spinner(new String[]{"Classic", "Gentle", "Pulse", "Chime", "Digital", "Wake-up", "Loud alarm"});
+        column.addView(timerSound, fieldParams());
         column.addView(sectionTitle("Timers"));
-        JSONArray timers = QuickTimerStore.getTimers(this);
-        if (timers.length() == 0) column.addView(empty("No timers running."), new LinearLayout.LayoutParams(-1, dp(220)));
-        for (int index = 0; index < timers.length(); index += 1) {
-            JSONObject timer = timers.optJSONObject(index);
-            if (timer != null) column.addView(timerCard(timer));
-        }
+        timerList = new LinearLayout(this);
+        timerList.setOrientation(LinearLayout.VERTICAL);
+        column.addView(timerList, new LinearLayout.LayoutParams(-1, -2));
+        refreshTimerList();
         start.setOnClickListener(view -> {
             int selected = minutes.getSelectedItemPosition();
-            int value = selected == 60 ? clampInt(custom.getText().toString(), 1, (int) MAX_TIMER_MINUTES, 25) : selected + 1;
+            int value;
+            if (selected == 60) {
+                String raw = custom.getText().toString().trim();
+                if (raw.isEmpty()) {
+                    custom.setError("Enter a duration");
+                    return;
+                }
+                value = clampInt(raw, 1, (int) MAX_TIMER_MINUTES, 0);
+                if (value <= 0) {
+                    custom.setError("Use 1–" + MAX_TIMER_MINUTES + " minutes");
+                    return;
+                }
+            } else {
+                value = selected + 1;
+            }
             String label = safeName(name.getText().toString(), "Timer");
             try {
+                String[] timerSoundCodes = {"classic", "gentle", "pulse", "chime", "digital", "wake-up", "loud-alarm"};
                 JSONObject timer = new JSONObject()
                         .put("id", UUID.randomUUID().toString())
                         .put("label", label)
@@ -480,7 +539,9 @@ public final class MainActivity extends Activity {
                         .put("remainingSeconds", value * 60L)
                         .put("endsAtMs", System.currentTimeMillis() + value * 60_000L)
                         .put("state", "running")
-                        .put("snoozeCount", 0);
+                        .put("snoozeCount", 0)
+                        .put("sound", timerSoundCodes[timerSound.getSelectedItemPosition()])
+                        .put("volume", 1.0);
                 JSONArray updated = QuickTimerStore.getTimers(this);
                 if (updated.length() < 10) {
                     updated.put(timer);
@@ -492,6 +553,20 @@ public final class MainActivity extends Activity {
             } catch (JSONException ignored) { }
         });
         setPage("Multi-Timer", scroll(column), true);
+    }
+
+    private void refreshTimerList() {
+        if (timerList == null) return;
+        timerList.removeAllViews();
+        JSONArray timers = QuickTimerStore.getTimers(this);
+        if (timers.length() == 0) {
+            timerList.addView(empty("No timers running."), new LinearLayout.LayoutParams(-1, dp(220)));
+            return;
+        }
+        for (int index = 0; index < timers.length(); index += 1) {
+            JSONObject timer = timers.optJSONObject(index);
+            if (timer != null) timerList.addView(timerCard(timer));
+        }
     }
 
     private LinearLayout timerCard(JSONObject timer) {
@@ -582,7 +657,7 @@ public final class MainActivity extends Activity {
         LinearLayout heading = row();
         EditText name = edit(counter.optString("name", "Counter"), "Counter name");
         heading.addView(name, new LinearLayout.LayoutParams(0, dp(58), 1));
-        Button remove = headerButton("×");
+        Button remove = headerButton("delete");
         remove.setOnClickListener(view -> { CounterStore.remove(this, counter.optString("id")); showCounter(); });
         heading.addView(remove, new LinearLayout.LayoutParams(dp(54), dp(58)));
         name.setOnFocusChangeListener((view, focused) -> { if (!focused) saveCounterName(counter, name); });
@@ -614,6 +689,7 @@ public final class MainActivity extends Activity {
 
     private void showWeather() {
         currentPage = "weather";
+        weatherRequestGeneration += 1;
         resetToolbar("Weather", null);
         LinearLayout column = pageColumn();
         column.addView(sectionTitle("Local weather"));
@@ -645,6 +721,7 @@ public final class MainActivity extends Activity {
     }
 
     private void requestWeather(TextView status, LinearLayout forecast) {
+        final int requestGeneration = ++weatherRequestGeneration;
         if (!hasLocationPermission()) {
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_REQUEST);
             status.setText("Location permission is required for the forecast.");
@@ -671,26 +748,29 @@ public final class MainActivity extends Activity {
                 if (provider == null) provider = LocationManager.NETWORK_PROVIDER;
                 String selectedProvider = provider;
                 manager.requestSingleUpdate(selectedProvider, new LocationListener() {
-                    @Override public void onLocationChanged(Location result) { loadWeather(result, status, forecast); }
+                    @Override public void onLocationChanged(Location result) { loadWeather(result, status, forecast, requestGeneration); }
                 }, Looper.getMainLooper());
             } catch (Exception ignored) { status.setText("Location is not available."); }
             return;
         }
-        loadWeather(location, status, forecast);
+        loadWeather(location, status, forecast, requestGeneration);
     }
 
-    private void loadWeather(Location location, TextView status, LinearLayout forecast) {
+    private void loadWeather(Location location, TextView status, LinearLayout forecast, int requestGeneration) {
         status.setText("Loading forecast…");
         new Thread(() -> {
+            HttpURLConnection connection = null;
             try {
                 String query = "https://api.open-meteo.com/v1/forecast?latitude=" + location.getLatitude()
                         + "&longitude=" + location.getLongitude()
                         + "&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m"
                         + "&daily=temperature_2m_max,temperature_2m_min,weather_code&forecast_days=3&timezone=auto";
-                HttpURLConnection connection = (HttpURLConnection) new URL(query).openConnection();
+                connection = (HttpURLConnection) new URL(query).openConnection();
                 connection.setConnectTimeout(10000);
                 connection.setReadTimeout(10000);
                 connection.setRequestMethod("GET");
+                int responseCode = connection.getResponseCode();
+                if (responseCode < 200 || responseCode >= 300) throw new java.io.IOException("HTTP " + responseCode);
                 BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                 StringBuilder body = new StringBuilder();
                 String line;
@@ -703,9 +783,19 @@ public final class MainActivity extends Activity {
                 final JSONObject dailySnapshot = daily;
                 final double latitude = location.getLatitude();
                 final double longitude = location.getLongitude();
-                runOnUiThread(() -> renderWeather(status, forecast, currentSnapshot, dailySnapshot, latitude, longitude));
+                runOnUiThread(() -> {
+                    if (requestGeneration == weatherRequestGeneration && status == weatherStatus && forecast == weatherForecast) {
+                        renderWeather(status, forecast, currentSnapshot, dailySnapshot, latitude, longitude);
+                    }
+                });
             } catch (Exception error) {
-                runOnUiThread(() -> status.setText("Forecast unavailable. Check your connection."));
+                runOnUiThread(() -> {
+                    if (requestGeneration == weatherRequestGeneration && status == weatherStatus && forecast == weatherForecast) {
+                        status.setText("Forecast unavailable. Check your connection.");
+                    }
+                });
+            } finally {
+                if (connection != null) connection.disconnect();
             }
         }).start();
     }
@@ -740,6 +830,12 @@ public final class MainActivity extends Activity {
             TextView dateView = text(date, 15, INK);
             TextView conditionView = text(condition, 15, MUTED);
             TextView temperatureView = text(high + " / " + low, 15, INK);
+            dateView.setSingleLine(true);
+            dateView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            conditionView.setSingleLine(true);
+            conditionView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            temperatureView.setSingleLine(true);
+            temperatureView.setEllipsize(android.text.TextUtils.TruncateAt.END);
             temperatureView.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
             day.addView(dateView, new LinearLayout.LayoutParams(0, dp(34), 1));
             day.addView(conditionView, new LinearLayout.LayoutParams(0, dp(34), 1.25f));
@@ -873,7 +969,27 @@ public final class MainActivity extends Activity {
 
     private LinearLayout.LayoutParams fieldParams() { LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, dp(58)); params.setMargins(0, 0, 0, dp(4)); return params; }
 
-    private Button headerButton(String value) { Button button = plainButton(value, 22); button.setMinWidth(0); button.setPadding(0, 0, 0, 0); return button; }
+    private Button headerButton(String value) {
+        Button button = plainButton("", 22);
+        button.setMinWidth(0);
+        button.setPadding(0, 0, 0, 0);
+        if ("+".equals(value)) {
+            button.setCompoundDrawablesWithIntrinsicBounds(com.rbabbit.alarm.R.drawable.ic_add, 0, 0, 0);
+            button.setContentDescription("Add");
+        } else if ("settings".equals(value)) {
+            button.setCompoundDrawablesWithIntrinsicBounds(com.rbabbit.alarm.R.drawable.ic_settings, 0, 0, 0);
+            button.setContentDescription("Edit alarm");
+        } else if ("back".equals(value)) {
+            button.setCompoundDrawablesWithIntrinsicBounds(com.rbabbit.alarm.R.drawable.ic_arrow_back, 0, 0, 0);
+            button.setContentDescription("Back");
+        } else if ("delete".equals(value)) {
+            button.setCompoundDrawablesWithIntrinsicBounds(com.rbabbit.alarm.R.drawable.ic_delete, 0, 0, 0);
+            button.setContentDescription("Delete");
+        } else {
+            button.setText(value);
+        }
+        return button;
+    }
 
     private Button plainButton(String value, float size) { Button button = new Button(this); button.setText(value); button.setTextSize(size); button.setTextColor(INK); button.setAllCaps(false); button.setBackgroundColor(Color.TRANSPARENT); return button; }
 

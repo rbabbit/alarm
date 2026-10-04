@@ -11,7 +11,7 @@ This document separates requirements already stated from behavior that must be d
 - A long timer can emit recurring events, for example every hour during a 24-hour window.
 - Multiple and complex schedules are expected.
 - The Android version must preserve the actual schedule state when the app process is stopped, the device sleeps, or the device reboots.
-- Voice control is a later Android feature; the target command is `STOP`.
+- Voice control is out of scope for the current Android app; no microphone permission or speech-recognition path is required.
 
 ## Explicit schedule concepts
 
@@ -36,7 +36,7 @@ These are intentionally unresolved:
 4. After the last snooze duration, should the alarm dismiss, repeat the last snooze duration, repeat the sequence, or remain ringing?
 5. When two alarms are due together, should they merge, queue, or ring simultaneously?
 6. Which calendar/time-zone rules apply to daily and weekly alarms around daylight-saving changes?
-7. What is the minimum Android version and which languages must voice commands support?
+7. What is the minimum Android version and which Android OS versions must be supported?
 
 ## Non-negotiable correctness rules
 

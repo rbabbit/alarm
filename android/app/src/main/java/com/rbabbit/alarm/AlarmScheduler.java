@@ -136,6 +136,15 @@ public final class AlarmScheduler {
         Set<String> days = readDays(alarm.optJSONArray("repeatDays"));
         Calendar after = Calendar.getInstance();
         after.setTimeInMillis(afterMs);
+        if ("once".equals(frequency)) {
+            Calendar occurrence = (Calendar) after.clone();
+            occurrence.set(Calendar.HOUR_OF_DAY, start / 60);
+            occurrence.set(Calendar.MINUTE, start % 60);
+            occurrence.set(Calendar.SECOND, 0);
+            occurrence.set(Calendar.MILLISECOND, 0);
+            if (occurrence.getTimeInMillis() <= afterMs) occurrence.add(Calendar.DAY_OF_YEAR, 1);
+            return occurrence.getTimeInMillis();
+        }
         for (int offset = 0; offset <= 8; offset += 1) {
             Calendar base = (Calendar) after.clone();
             base.set(Calendar.HOUR_OF_DAY, 0);
@@ -145,7 +154,7 @@ public final class AlarmScheduler {
             base.add(Calendar.DAY_OF_YEAR, offset);
             if (!days.contains(dayCode(base.get(Calendar.DAY_OF_WEEK)))) continue;
 
-            int distance = "once".equals(frequency) ? 0 : (end >= start ? end - start : 1440 - start + end);
+            int distance = end >= start ? end - start : 1440 - start + end;
             for (int minuteOffset = 0; minuteOffset <= distance; minuteOffset += interval) {
                 Calendar occurrence = (Calendar) base.clone();
                 occurrence.add(Calendar.MINUTE, start + minuteOffset);

@@ -18,7 +18,9 @@ public final class AlarmReceiver extends BroadcastReceiver {
 
         long occurrenceAtMs = intent.getLongExtra(AlarmScheduler.EXTRA_OCCURRENCE_AT, System.currentTimeMillis());
         int snoozeIndex = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_INDEX, 0);
-        if (snoozeIndex == 0) AlarmScheduler.scheduleNextBaseline(context, alarm, occurrenceAtMs);
+        if (snoozeIndex == 0 && !"once".equals(alarm.optString("frequency"))) {
+            AlarmScheduler.scheduleNextBaseline(context, alarm, occurrenceAtMs);
+        }
         AlarmStore.appendHistory(context, alarm, snoozeIndex == 0 ? "started" : "snoozed ringing");
         Intent serviceIntent = new Intent(context, AlarmRingingService.class)
                 .putExtra(AlarmScheduler.EXTRA_ALARM_ID, alarmId)

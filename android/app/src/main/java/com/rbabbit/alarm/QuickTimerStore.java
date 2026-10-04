@@ -11,6 +11,7 @@ import org.json.JSONObject;
 public final class QuickTimerStore {
     private static final String PREFS = "quick_timer_native_state";
     private static final String TIMERS = "timers";
+    private static final int MAX_TIMERS = 10;
 
     private QuickTimerStore() { }
 
@@ -53,7 +54,11 @@ public final class QuickTimerStore {
     }
 
     public static synchronized void replace(Context context, JSONArray timers) {
-        prefs(context).edit().putString(TIMERS, timers == null ? "[]" : timers.toString()).apply();
+        JSONArray safe = timers == null ? new JSONArray() : timers;
+        int first = Math.max(0, safe.length() - MAX_TIMERS);
+        JSONArray capped = new JSONArray();
+        for (int index = first; index < safe.length(); index += 1) capped.put(safe.opt(index));
+        prefs(context).edit().putString(TIMERS, capped.toString()).apply();
     }
 
     public static synchronized boolean update(Context context, JSONObject replacement) {

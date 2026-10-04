@@ -25,7 +25,11 @@ public final class AlarmActionReceiver extends BroadcastReceiver {
     public static void performStop(Context context, String alarmId) {
         JSONObject alarm = AlarmStore.findAlarm(context, alarmId);
         if (alarm == null) return;
-        AlarmScheduler.scheduleNextBaseline(context, alarm, System.currentTimeMillis());
+        if ("once".equals(alarm.optString("frequency"))) {
+            AlarmStore.setEnabled(context, alarmId, false);
+        } else {
+            AlarmScheduler.scheduleNextBaseline(context, alarm, System.currentTimeMillis());
+        }
         AlarmStore.appendHistory(context, alarm, "stopped");
         stopRinging(context, alarmId);
     }

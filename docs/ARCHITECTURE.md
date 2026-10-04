@@ -3,7 +3,7 @@
 ## Layers
 
 ```text
-Web UI / Android UI
+Browser prototype / Native Android UI
         |
         v
 Application commands and state projection
@@ -11,11 +11,11 @@ Application commands and state projection
         v
 Pure scheduling domain engine
         |
-        +--> Web persistence and browser adapter
+        +--> Web persistence and browser adapter (prototype only)
         |
         +--> Android persistence and AlarmManager adapter
         |
-        +--> Android notification, audio, vibration, and voice adapters
+        +--> Android notification, audio, and vibration adapters
 ```
 
 ## Domain state
@@ -66,10 +66,10 @@ The Android adapter will later translate `nextOccurrenceAtMs` into an Android al
 
 For a one-shot countdown, `nextOccurrenceAtMs = startAtMs + durationMs`. For an interval-window schedule, the first occurrence is `startAtMs + intervalMs`; endpoint inclusion is controlled explicitly by `endpointPolicy`.
 
-## Web-first decision
+## Browser prototype boundary
 
-The initial project uses browser-native ES modules and Node's built-in test runner. This is a reversible implementation choice for the first slice; it avoids adding a dependency/toolchain decision before the domain behavior is verified.
+The root `web/` project uses browser-native ES modules and Node's built-in test runner. It remains a prototype and test harness; it is not loaded by the Android app.
 
 ## Android port boundary
 
-The Android port must include native components for exact alarms, notifications, audio, vibration, boot/time-zone recovery, persistent storage, and later voice recognition. The web UI may remain inside a WebView, but the alarm authority must be native for reliable background behavior.
+The Android app includes native components for exact alarms, notifications, audio, vibration, boot/time-zone recovery, and persistent storage. The alarm authority is native so delivery can continue when the activity is closed. Voice-stop was intentionally removed and is not requested by the current manifest.
