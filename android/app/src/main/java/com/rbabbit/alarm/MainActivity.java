@@ -467,7 +467,10 @@ public final class MainActivity extends Activity {
                     View candidate = days.findViewWithTag(DAY_CODES[index]);
                     if (candidate instanceof ToggleButton && ((ToggleButton) candidate).isChecked()) updatedDays.put(DAY_CODES[index]);
                 }
-                editingAlarm.put("repeatDays", repeatMode ? (updatedDays.length() == 0 ? new JSONArray().put("MO") : updatedDays) : new JSONArray());
+                // Preserve the user's weekday selection for both alarm modes. A single alarm
+                // does not use the days for scheduling, but the selection must remain available
+                // if the user switches back to Repeat Alarm later.
+                editingAlarm.put("repeatDays", updatedDays);
                 editingAlarm.put("startTime", start.getText().toString());
                 editingAlarm.put("endTime", end.getText().toString());
                 editingAlarm.put("intervalMinutes", clampInt(interval.getText().toString(), 1, 1440, 60));
