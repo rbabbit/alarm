@@ -304,20 +304,18 @@ public final class MainActivity extends Activity {
         settings.setContentDescription("Edit alarm");
         settings.setOnClickListener(view -> showEditAlarm(alarm));
         top.addView(settings, new LinearLayout.LayoutParams(dp(58), dp(58)));
+        boolean alarmEnabled = alarm.optBoolean("enabled", false);
         Switch enabled = new Switch(this);
-        enabled.setTextOn("ON");
-        enabled.setTextOff("OFF");
-        enabled.setShowText(true);
-        enabled.setTextSize(14);
-        enabled.setTextColor(INK);
-        enabled.setChecked(alarm.optBoolean("enabled", false));
+        enabled.setShowText(false);
+        enabled.setText(null);
+        enabled.setChecked(alarmEnabled);
         enabled.setContentDescription("Enable alarm");
         enabled.setOnCheckedChangeListener((button, checked) -> {
             AlarmStore.setEnabled(this, alarm.optString("id"), checked);
             AlarmScheduler.syncAll(this);
             if (checked) maybeRequestExactAlarmAccess(true);
         });
-        top.addView(enabled, new LinearLayout.LayoutParams(dp(92), dp(58)));
+        top.addView(enabled, new LinearLayout.LayoutParams(dp(58), dp(58)));
         card.addView(top);
 
         LinearLayout detail = row();
@@ -438,9 +436,7 @@ public final class MainActivity extends Activity {
         column.addView(sectionTitle("Snooze"));
         Switch snooze = new Switch(this);
         snooze.setText("Allow snooze");
-        snooze.setTextOn("ON");
-        snooze.setTextOff("OFF");
-        snooze.setShowText(true);
+        snooze.setShowText(false);
         snooze.setTextSize(17);
         snooze.setChecked(editingAlarm.optBoolean("snoozeEnabled", true));
         column.addView(snooze, new LinearLayout.LayoutParams(-1, dp(56)));
@@ -450,9 +446,7 @@ public final class MainActivity extends Activity {
         column.addView(sectionTitle("Enable alarm"));
         Switch enable = new Switch(this);
         enable.setText("Enabled");
-        enable.setTextOn("ON");
-        enable.setTextOff("OFF");
-        enable.setShowText(true);
+        enable.setShowText(false);
         enable.setTextSize(17);
         enable.setChecked(editingAlarm.optBoolean("enabled", true));
         column.addView(enable, new LinearLayout.LayoutParams(-1, dp(56)));
