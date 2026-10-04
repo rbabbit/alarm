@@ -58,6 +58,7 @@ import java.text.SimpleDateFormat;
 
 /** Native Android UI. No WebView, JavaScript bridge, or CSS controls are used here. */
 public final class MainActivity extends Activity {
+    public static final String EXTRA_OPEN_ADD_ALARM = "com.rbabbit.alarm.OPEN_ADD_ALARM";
     private static final int LOCATION_REQUEST = 71;
     private static final int NOTIFICATION_REQUEST = 72;
     private static final long MAX_TIMER_MINUTES = 30L * 24L * 60L;
@@ -103,7 +104,8 @@ public final class MainActivity extends Activity {
         QuickTimerScheduler.syncAll(this);
         exactAlarmAccess = AlarmScheduler.canScheduleExactAlarms(this);
         buildShell();
-        showAlarms();
+        if (getIntent().getBooleanExtra(EXTRA_OPEN_ADD_ALARM, false)) showNewAlarmEditor();
+        else showAlarms();
         maybeRequestExactAlarmAccess(false);
         if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_REQUEST);
@@ -133,6 +135,13 @@ public final class MainActivity extends Activity {
             };
             handler.post(ticker);
         }
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (intent.getBooleanExtra(EXTRA_OPEN_ADD_ALARM, false)) showNewAlarmEditor();
     }
 
     @Override
@@ -286,6 +295,10 @@ public final class MainActivity extends Activity {
             }
         }
         setPage("Alarms", scroll(column), true);
+    }
+
+    private void showNewAlarmEditor() {
+        showEditAlarm(defaultAlarm());
     }
 
     private void resetToolbar(String title, View action) {
