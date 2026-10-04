@@ -28,11 +28,9 @@ public final class AlarmActionReceiver extends BroadcastReceiver {
             stopRinging(context, alarmId);
             return;
         }
-        if ("once".equals(alarm.optString("frequency"))) {
-            AlarmStore.setEnabled(context, alarmId, false);
-        } else {
-            AlarmScheduler.scheduleNextBaseline(context, alarm, System.currentTimeMillis());
-        }
+        // Stopping an occurrence must not change the user's enabled preference.
+        // The main-screen switch is user-controlled; scheduling follows that state.
+        AlarmScheduler.scheduleNextBaseline(context, alarm, System.currentTimeMillis());
         AlarmStore.appendHistory(context, alarm, "stopped");
         stopRinging(context, alarmId);
     }

@@ -27,11 +27,9 @@ public final class AlarmRingingService extends Service {
         timedOut = true;
         JSONObject alarm = AlarmStore.findAlarm(this, alarmId);
         if (alarm != null) {
-            if ("once".equals(alarm.optString("frequency"))) {
-                AlarmStore.setEnabled(this, alarmId, false);
-            } else {
-                AlarmScheduler.scheduleNextBaseline(this, alarm, System.currentTimeMillis());
-            }
+            // Ringing completion must not change the user's enabled preference.
+            // The main-screen switch is user-controlled; scheduling follows that state.
+            AlarmScheduler.scheduleNextBaseline(this, alarm, System.currentTimeMillis());
         }
         NotificationHelper.cancel(this, alarmId);
         clearActive(this, alarmId);
