@@ -119,6 +119,8 @@ button { cursor: pointer; }
 .ringing-banner div:first-child { display: grid; gap: 4px; }
 .ringing-banner span { font-size: .85rem; opacity: .85; }
 .native-android .ringing-banner { display: none; }
+.native-android [data-native-key] { visibility: hidden !important; }
+.native-android .time-picker-menu { display: none !important; }
 .native-android .switch-wrap, .native-android .alarm-switch-control { visibility: hidden; }
 .ringing-actions button { border: 1px solid #111; border-radius: 8px; padding: 8px 10px; color: #111; background: #fff; }
 .simple-content { padding: 50px 26px; text-align: center; }

@@ -78,29 +78,75 @@ function isNativeAndroid() {
 
 function nativeControlsBridge() {
   return isNativeAndroid() && window.AndroidNativeControls
-    && typeof window.AndroidNativeControls.syncNativeSwitches === "function"
+    && typeof window.AndroidNativeControls.syncNativeControls === "function"
     ? window.AndroidNativeControls
     : null;
 }
 
-function syncNativeSwitches() {
+function nativeControlKey(element) {
+  if (element.dataset.nativeKey) return element.dataset.nativeKey;
+  let key = "";
+  if (element.dataset.view) key = `nav:${element.dataset.view}`;
+  else if (element.dataset.timeToggle !== undefined) key = `time:${element.closest("[data-time-picker]")?.dataset.timePicker || element.id}`;
+  else if (element.dataset.frequency) key = `frequency:${element.dataset.frequency}`;
+  else if (element.dataset.day) key = `repeat-day:${element.dataset.day}`;
+  else if (element.dataset.inlineDay) key = `inline-day:${element.closest("[data-edit]")?.dataset.edit || ""}:${element.dataset.inlineDay}`;
+  else if (element.dataset.advanced) key = `advanced:${element.dataset.advanced}`;
+  else if (element.dataset.quickAction) key = `quick-action:${element.dataset.quickId}:${element.dataset.quickAction}`;
+  else if (element.dataset.counterAction) key = `counter:${element.closest("[data-counter-id]")?.dataset.counterId || ""}:${element.dataset.counterAction}`;
+  else if (element.id) key = `id:${element.id}`;
+  if (!key) return "";
+  element.dataset.nativeKey = key;
+  return key;
+}
+
+function nativeControlDescriptor(element) {
+  const rect = element.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return null;
+  const key = nativeControlKey(element);
+  if (!key || element.matches(".time-option")) return null;
+  const isSwitch = element.matches('input[type="checkbox"][role="switch"]');
+  const isTime = element.matches("[data-time-toggle], input[type=\"time\"]");
+  const type = isSwitch ? "switch" : isTime ? "time" : element.matches("select") ? "select" : element.matches("input[type=range]") ? "range" : element.matches("input") ? "input" : "button";
+  const picker = element.closest("[data-time-picker]");
+  let value = element.value ?? "";
+  if (element.dataset.timeToggle !== undefined && picker) {
+    const [id, field] = picker.dataset.timePicker.split("|");
+    value = alarms.find((alarm) => alarm.id === id)?.[field] || value;
+  }
+  return {
+    key,
+    type,
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+    value,
+    text: element.matches("input, select")
+      ? (element.getAttribute("aria-label") || element.id || "")
+      : element.querySelector("span")?.textContent?.trim() || element.textContent.trim(),
+    hint: element.getAttribute("placeholder") || "",
+    inputType: element.getAttribute("type") || "text",
+    checked: isSwitch ? element.checked : false,
+    enabled: !element.disabled,
+    min: Number(element.min || 0),
+    max: Number(element.max || 1),
+    step: Number(element.step || 1),
+    options: element.matches("select") ? [...element.options].map((option) => ({ value: option.value, label: option.textContent })) : [],
+    className: element.className || "",
+    parentClassName: element.parentElement?.className || ""
+  };
+}
+
+function syncNativeControls() {
   const bridge = nativeControlsBridge();
   if (!bridge) return;
-  const controlState = (input, key) => {
-    const wrapper = input.closest(".switch-wrap, .alarm-switch-control");
-    if (!wrapper) return null;
-    const rect = wrapper.getBoundingClientRect();
-    if (rect.width <= 0 || rect.height <= 0) return null;
-    return { key, left: rect.left, top: rect.top, width: rect.width, height: rect.height, checked: input.checked, description: input.getAttribute("aria-label") || input.id || key };
-  };
-  const switches = [...document.querySelectorAll('input[type="checkbox"][role="switch"]')]
-    .map((input) => {
-      const key = input.id || (input.dataset.toggle ? `alarm:${input.dataset.toggle}` : "");
-      return key ? controlState(input, key) : null;
-    })
-    .filter(Boolean);
-  bridge.syncNativeSwitches(JSON.stringify({ view: currentView, switches }));
+  const elements = [...document.querySelectorAll("button, input, select")].filter((element) => !element.matches(".time-option"));
+  const controls = elements.map(nativeControlDescriptor).filter(Boolean);
+  bridge.syncNativeControls(JSON.stringify({ view: currentView, controls }));
 }
+
+const syncNativeSwitches = syncNativeControls;
 
 window.setNativeSwitch = (key, checked) => {
   const input = key.startsWith("alarm:")
@@ -109,6 +155,25 @@ window.setNativeSwitch = (key, checked) => {
   if (!input || input.type !== "checkbox" || input.checked === Boolean(checked)) return;
   input.checked = Boolean(checked);
   input.dispatchEvent(new Event("change", { bubbles: true }));
+};
+
+window.dispatchNativeControl = (key, value) => {
+  const element = [...document.querySelectorAll("[data-native-key]")].find((item) => item.dataset.nativeKey === key);
+  if (!element) return;
+  if (element.matches("[data-time-toggle]")) {
+    const picker = element.closest("[data-time-picker]");
+    const [id, field] = picker.dataset.timePicker.split("|");
+    updateAlarmInline(id, { [field]: String(value) });
+    renderList();
+    return;
+  }
+  if (value !== undefined && "value" in element) {
+    element.value = String(value);
+    element.dispatchEvent(new Event("input", { bubbles: true }));
+    element.dispatchEvent(new Event("change", { bubbles: true }));
+    return;
+  }
+  element.click();
 };
 
 function mergeHistoryLists(...lists) {
@@ -227,7 +292,7 @@ function render() {
   if (currentView === "quick") renderQuick();
   if (currentView === "info") renderInfo();
   renderRingingBanner();
-  syncNativeSwitches();
+  syncNativeControls();
 }
 
 function renderList() {

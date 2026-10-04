@@ -2,19 +2,29 @@ package com.rbabbit.alarm;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.TimePickerDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.TextWatcher;
+import android.util.TypedValue;
 import android.view.View;
 import android.view.WindowInsets;
+import android.view.Gravity;
 import android.widget.FrameLayout;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.SeekBar;
 import android.widget.Switch;
 import android.view.KeyEvent;
 import android.webkit.GeolocationPermissions;
@@ -37,6 +47,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public final class MainActivity extends Activity {
@@ -45,7 +56,11 @@ public final class MainActivity extends Activity {
     private WebView webView;
     private FrameLayout rootLayout;
     private final Map<String, Switch> nativeSwitches = new HashMap<>();
+    private final Map<String, View> nativeControls = new HashMap<>();
+    private final Map<String, String> nativeControlTypes = new HashMap<>();
+    private final Map<String, JSONObject> nativeControlStates = new HashMap<>();
     private boolean syncingNativeSwitches;
+    private boolean syncingNativeControls;
     private int topInsetPx;
     private int bottomInsetPx;
     private boolean appPermissionsRequested;
@@ -350,11 +365,237 @@ public final class MainActivity extends Activity {
         control.bringToFront();
     }
 
+    private void dispatchNativeControl(String key, String value) {
+        if (webView == null) return;
+        String script = "window.dispatchNativeControl && window.dispatchNativeControl(" + JSONObject.quote(key);
+        if (value != null) script += "," + JSONObject.quote(value);
+        script += ");";
+        final String javascript = script;
+        webView.post(() -> webView.evaluateJavascript(javascript, null));
+    }
+
+    private String selectedOptionLabel(JSONObject state) {
+        String value = state.optString("value", "");
+        JSONArray options = state.optJSONArray("options");
+        if (options != null) {
+            for (int index = 0; index < options.length(); index += 1) {
+                JSONObject option = options.optJSONObject(index);
+                if (option != null && value.equals(option.optString("value"))) {
+                    return option.optString("label", value);
+                }
+            }
+        }
+        return value;
+    }
+
+    private void showNativeTimePicker(String key, JSONObject state) {
+        String value = state.optString("value", "00:00");
+        int hour = 0;
+        int minute = 0;
+        try {
+            String[] parts = value.split(":");
+            hour = Math.max(0, Math.min(23, Integer.parseInt(parts[0])));
+            minute = Math.max(0, Math.min(59, Integer.parseInt(parts[1])));
+        } catch (RuntimeException ignored) { }
+        new TimePickerDialog(
+                this,
+                (view, selectedHour, selectedMinute) -> dispatchNativeControl(
+                        key,
+                        String.format(Locale.US, "%02d:%02d", selectedHour, selectedMinute)
+                ),
+                hour,
+                minute,
+                true
+        ).show();
+    }
+
+    private void showNativeSelect(String key, JSONObject state) {
+        JSONArray options = state.optJSONArray("options");
+        if (options == null || options.length() == 0) return;
+        String[] labels = new String[options.length()];
+        int selected = 0;
+        String current = state.optString("value", "");
+        for (int index = 0; index < options.length(); index += 1) {
+            JSONObject option = options.optJSONObject(index);
+            labels[index] = option == null ? "" : option.optString("label", option.optString("value", ""));
+            if (option != null && current.equals(option.optString("value"))) selected = index;
+        }
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(state.optString("text", "Choose an option"))
+                .setSingleChoiceItems(labels, selected, null)
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            android.widget.ListView list = dialog.getListView();
+            list.setOnItemClickListener((parent, view, position, id) -> {
+                JSONObject option = options.optJSONObject(position);
+                if (option != null) dispatchNativeControl(key, option.optString("value", ""));
+                dialog.dismiss();
+            });
+        });
+        dialog.show();
+    }
+
+    private GradientDrawable nativeBackground(JSONObject state, boolean selected) {
+        String classes = state.optString("className", "") + " " + state.optString("parentClassName", "");
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(selected ? Color.BLACK : Color.WHITE);
+        background.setStroke(dp(1), Color.BLACK);
+        if (classes.contains("bottom-nav")) {
+            background.setColor(Color.TRANSPARENT);
+            background.setStroke(0, Color.TRANSPARENT);
+        } else if (classes.contains("day-picker") || classes.contains("alarm-day-strip")) {
+            background.setShape(GradientDrawable.OVAL);
+        } else {
+            background.setCornerRadius(dp(8));
+        }
+        return background;
+    }
+
+    private View createNativeControl(String key, String type) {
+        if ("switch".equals(type)) {
+            Switch control = nativeSwitchFor(key, key);
+            nativeControls.put(key, control);
+            return control;
+        }
+        if ("input".equals(type)) {
+            EditText control = new EditText(this);
+            control.setSingleLine(true);
+            control.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+            control.addTextChangedListener(new TextWatcher() {
+                @Override public void beforeTextChanged(CharSequence value, int start, int count, int after) { }
+                @Override public void onTextChanged(CharSequence value, int start, int before, int count) {
+                    if (!syncingNativeControls) dispatchNativeControl(key, value.toString());
+                }
+                @Override public void afterTextChanged(Editable value) { }
+            });
+            nativeControls.put(key, control);
+            rootLayout.addView(control, new FrameLayout.LayoutParams(1, 1));
+            return control;
+        }
+        if ("range".equals(type)) {
+            SeekBar control = new SeekBar(this);
+            control.setMax(1000);
+            control.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                @Override public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
+                    if (!syncingNativeControls && fromUser) {
+                        JSONObject state = nativeControlStates.get(key);
+                        double min = state == null ? 0 : state.optDouble("min", 0);
+                        double max = state == null ? 1 : state.optDouble("max", 1);
+                        double value = min + (max - min) * progress / 1000d;
+                        dispatchNativeControl(key, String.format(Locale.US, "%.3f", value));
+                    }
+                }
+                @Override public void onStartTrackingTouch(SeekBar bar) { }
+                @Override public void onStopTrackingTouch(SeekBar bar) { }
+            });
+            nativeControls.put(key, control);
+            rootLayout.addView(control, new FrameLayout.LayoutParams(1, 1));
+            return control;
+        }
+        Button control = new Button(this);
+        control.setAllCaps(false);
+        control.setGravity(Gravity.CENTER);
+        control.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        control.setPadding(dp(4), 0, dp(4), 0);
+        control.setOnClickListener(view -> {
+            JSONObject state = nativeControlStates.get(key);
+            if (state == null) return;
+            if ("time".equals(type)) showNativeTimePicker(key, state);
+            else if ("select".equals(type)) showNativeSelect(key, state);
+            else dispatchNativeControl(key, null);
+        });
+        nativeControls.put(key, control);
+        rootLayout.addView(control, new FrameLayout.LayoutParams(1, 1));
+        return control;
+    }
+
+    private void updateNativeControl(View control, JSONObject state) {
+        String key = state.optString("key", "");
+        String type = state.optString("type", "button");
+        nativeControlStates.put(key, state);
+        float scale = webView == null ? 1f : webView.getScale();
+        int width = Math.max(dp(32), Math.round((float) state.optDouble("width", 48) * scale));
+        int height = Math.max(dp(32), Math.round((float) state.optDouble("height", 40) * scale));
+        int left = webView == null ? 0 : webView.getLeft() + Math.round((float) state.optDouble("left", 0) * scale);
+        int top = webView == null ? 0 : webView.getTop() + Math.round((float) state.optDouble("top", 0) * scale);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(width, height);
+        params.leftMargin = left;
+        params.topMargin = top;
+        control.setLayoutParams(params);
+        control.setEnabled(state.optBoolean("enabled", true));
+        if (control instanceof Switch) {
+            syncingNativeSwitches = true;
+            ((Switch) control).setChecked(state.optBoolean("checked", false));
+            syncingNativeSwitches = false;
+        } else if (control instanceof EditText) {
+            EditText editText = (EditText) control;
+            String value = state.optString("value", "");
+            syncingNativeControls = true;
+            if (!value.equals(editText.getText().toString())) {
+                editText.setText(value);
+                editText.setSelection(editText.length());
+            }
+            editText.setHint(state.optString("hint", ""));
+            if ("number".equals(state.optString("inputType", ""))) {
+                editText.setInputType(android.text.InputType.TYPE_CLASS_NUMBER | android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL);
+            }
+            syncingNativeControls = false;
+        } else if (control instanceof SeekBar) {
+            double min = state.optDouble("min", 0);
+            double max = state.optDouble("max", 1);
+            double value = state.optDouble("value", min);
+            int progress = max <= min ? 0 : (int) Math.round((value - min) * 1000d / (max - min));
+            syncingNativeControls = true;
+            ((SeekBar) control).setProgress(Math.max(0, Math.min(1000, progress)));
+            syncingNativeControls = false;
+        } else if (control instanceof Button) {
+            Button button = (Button) control;
+            String label;
+            if ("time".equals(type)) label = state.optString("value", "00:00");
+            else if ("select".equals(type)) label = selectedOptionLabel(state);
+            else label = state.optString("text", "");
+            button.setText(label);
+            boolean selected = state.optBoolean("selected", false) || state.optString("className", "").contains("selected");
+            button.setTextColor(selected ? Color.WHITE : Color.BLACK);
+            button.setBackground(nativeBackground(state, selected));
+        }
+        control.setVisibility(View.VISIBLE);
+        control.bringToFront();
+    }
+
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
     }
 
     public final class NativeControlsBridge {
+        @JavascriptInterface
+        public void syncNativeControls(String stateJson) {
+            runOnUiThread(() -> {
+                try {
+                    JSONObject state = new JSONObject(stateJson == null ? "{}" : stateJson);
+                    for (View control : nativeControls.values()) control.setVisibility(View.GONE);
+                    JSONArray controls = state.optJSONArray("controls");
+                    if (controls == null) return;
+                    for (int index = 0; index < controls.length(); index += 1) {
+                        JSONObject controlState = controls.optJSONObject(index);
+                        if (controlState == null) continue;
+                        String key = controlState.optString("key", "");
+                        String type = controlState.optString("type", "button");
+                        if (key.isEmpty()) continue;
+                        View control = nativeControls.get(key);
+                        if (control == null || !type.equals(nativeControlTypes.get(key))) {
+                            if (control != null) rootLayout.removeView(control);
+                            nativeControlTypes.put(key, type);
+                            control = createNativeControl(key, type);
+                        }
+                        updateNativeControl(control, controlState);
+                    }
+                } catch (JSONException ignored) {
+                    for (View control : nativeControls.values()) control.setVisibility(View.GONE);
+                }
+            });
+        }
+
         @JavascriptInterface
         public void syncNativeSwitches(String stateJson) {
             runOnUiThread(() -> {
