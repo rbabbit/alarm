@@ -11,6 +11,7 @@ import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.Uri;
 import android.location.Criteria;
 import android.os.Bundle;
 import android.os.Handler;
@@ -74,6 +75,7 @@ public final class MainActivity extends Activity {
     private String currentPage = "alarms";
     private Runnable ticker;
     private TextView weatherStatus;
+    private TextView weatherCoordinates;
     private LinearLayout weatherForecast;
     private int weatherRequestGeneration;
     private LinearLayout timerList;
@@ -115,7 +117,6 @@ public final class MainActivity extends Activity {
         exactAlarmAccess = currentExactAlarmAccess;
         if (!editing && "timers".equals(currentPage)) showTimers();
         if (!editing && "alarms".equals(currentPage)) showAlarms();
-        if (!editing && "weather".equals(currentPage)) refreshWeatherPage();
         if (ticker == null) {
             ticker = new Runnable() {
                 @Override public void run() {
@@ -727,6 +728,11 @@ public final class MainActivity extends Activity {
         LinearLayout weatherHeader = row();
         TextView weatherTitle = sectionTitle("Local weather");
         weatherHeader.addView(weatherTitle, new LinearLayout.LayoutParams(0, dp(48), 1));
+        weatherStatus = text("Ready", 12, MUTED);
+        weatherStatus.setGravity(Gravity.CENTER);
+        weatherStatus.setPadding(dp(8), 0, dp(8), 0);
+        weatherStatus.setBackground(outline());
+        weatherHeader.addView(weatherStatus, new LinearLayout.LayoutParams(dp(88), dp(34)));
         Button locate = plainButton("Locate Me", 14);
         locate.setAllCaps(false);
         locate.setMinWidth(0);
@@ -738,9 +744,12 @@ public final class MainActivity extends Activity {
         locate.setContentDescription("Locate Me");
         weatherHeader.addView(locate, new LinearLayout.LayoutParams(dp(88), dp(40)));
         column.addView(weatherHeader);
-        weatherStatus = text("Location not loaded", 16, MUTED);
-        column.addView(weatherStatus, new LinearLayout.LayoutParams(-1, dp(36)));
         weatherForecast = card();
+        weatherCoordinates = text("GPS coordinates unavailable", 15, MUTED);
+        weatherCoordinates.setVisibility(View.GONE);
+        weatherCoordinates.setPaintFlags(weatherCoordinates.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        weatherCoordinates.setContentDescription("Open GPS coordinates in Google Maps");
+        weatherForecast.addView(weatherCoordinates, new LinearLayout.LayoutParams(-1, dp(36)));
         weatherForecast.addView(text("No forecast loaded", 22, INK));
         column.addView(weatherForecast);
         column.addView(text("Forecast data: Open-Meteo", 14, MUTED));
@@ -789,13 +798,6 @@ public final class MainActivity extends Activity {
                 .show();
     }
 
-    private void refreshWeatherPage() {
-        if (weatherStatus != null && weatherForecast != null
-                && hasLocationPermission()) {
-            requestWeather(weatherStatus, weatherForecast);
-        }
-    }
-
     private boolean hasLocationPermission() {
         return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
                 || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
@@ -838,7 +840,7 @@ public final class MainActivity extends Activity {
     }
 
     private void loadWeather(Location location, TextView status, LinearLayout forecast, int requestGeneration) {
-        status.setText("Loading forecast…");
+        status.setText("Refreshing…");
         new Thread(() -> {
             HttpURLConnection connection = null;
             try {
@@ -883,8 +885,13 @@ public final class MainActivity extends Activity {
 
     private void renderWeather(TextView status, LinearLayout forecast, JSONObject current, JSONObject daily,
                                double latitude, double longitude) {
-        status.setText(String.format(Locale.UK, "GPS connected  •  %.4f, %.4f", latitude, longitude));
+        status.setText("Ready");
         forecast.removeAllViews();
+        weatherCoordinates = text(String.format(Locale.UK, "GPS coordinates  %.4f, %.4f", latitude, longitude), 15, MUTED);
+        weatherCoordinates.setPaintFlags(weatherCoordinates.getPaintFlags() | android.graphics.Paint.UNDERLINE_TEXT_FLAG);
+        weatherCoordinates.setContentDescription("Open GPS coordinates in Google Maps");
+        weatherCoordinates.setOnClickListener(view -> openGoogleMaps(latitude, longitude));
+        forecast.addView(weatherCoordinates, new LinearLayout.LayoutParams(-1, dp(36)));
         forecast.addView(text("Current weather", 20, INK));
         TextView temperature = text(String.format(Locale.UK, "%.1f°C", current == null ? 0 : current.optDouble("temperature_2m")), 38, INK);
         temperature.setTypeface(null, android.graphics.Typeface.BOLD);
@@ -923,6 +930,12 @@ public final class MainActivity extends Activity {
             day.addView(temperatureView, new LinearLayout.LayoutParams(0, dp(34), 1));
             forecast.addView(day);
         }
+    }
+
+    private void openGoogleMaps(double latitude, double longitude) {
+        Intent maps = new Intent(Intent.ACTION_VIEW, Uri.parse("geo:" + latitude + "," + longitude + "?q=" + latitude + "," + longitude));
+        maps.setPackage("com.google.android.apps.maps");
+        if (maps.resolveActivity(getPackageManager()) != null) startActivity(maps);
     }
 
     private String weatherCode(int code) {
