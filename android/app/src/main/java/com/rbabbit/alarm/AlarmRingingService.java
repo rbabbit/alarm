@@ -26,14 +26,16 @@ public final class AlarmRingingService extends Service {
     private final Runnable timeout = () -> {
         timedOut = true;
         JSONObject alarm = AlarmStore.findAlarm(this, alarmId);
+        long nextAtMs = 0;
         if (alarm != null) {
             // Ringing completion must not change the user's enabled preference.
             // The main-screen switch is user-controlled; scheduling follows that state.
-            AlarmScheduler.scheduleNextBaseline(this, alarm, System.currentTimeMillis());
+            nextAtMs = AlarmScheduler.scheduleNextBaseline(this, alarm, System.currentTimeMillis());
         }
         NotificationHelper.cancel(this, alarmId);
         clearActive(this, alarmId);
         stopSelf();
+        NotificationHelper.showNextAlarm(this, alarm, nextAtMs);
     };
 
     @Override

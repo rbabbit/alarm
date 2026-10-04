@@ -55,17 +55,20 @@ public final class AlarmScheduler {
         return alarmId == null ? 1 : (alarmId.hashCode() & 0x7fffffff);
     }
 
-    public static void scheduleNextBaseline(Context context, JSONObject alarm, long afterMs) {
-        if (alarm == null || !alarm.optBoolean("enabled", false)) return;
+    public static long scheduleNextBaseline(Context context, JSONObject alarm, long afterMs) {
+        if (alarm == null || !alarm.optBoolean("enabled", false)) return 0;
         long next = nextOccurrence(alarm, Math.max(afterMs, System.currentTimeMillis() - 1000));
         if (next > 0) scheduleAt(context, alarm, next, 0, "baseline");
+        return next;
     }
 
-    public static void scheduleSnooze(Context context, JSONObject alarm, int minutes, int nextIndex) {
-        if (alarm == null || minutes <= 0) return;
+    public static long scheduleSnooze(Context context, JSONObject alarm, int minutes, int nextIndex) {
+        if (alarm == null || minutes <= 0) return 0;
         AlarmManager manager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         if (manager != null) manager.cancel(triggerIntent(context, alarm.optString("id"), "baseline", 0, 0));
-        scheduleAt(context, alarm, System.currentTimeMillis() + minutes * 60_000L, nextIndex, "snooze");
+        long next = System.currentTimeMillis() + minutes * 60_000L;
+        scheduleAt(context, alarm, next, nextIndex, "snooze");
+        return next;
     }
 
     public static boolean canScheduleExactAlarms(Context context) {

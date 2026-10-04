@@ -16,6 +16,8 @@ public final class AlarmReceiver extends BroadcastReceiver {
         JSONObject alarm = AlarmStore.findAlarm(context, alarmId);
         if (alarm == null || !alarm.optBoolean("enabled", false)) return;
 
+        NotificationHelper.cancelNextAlarm(context, alarmId);
+
         long occurrenceAtMs = intent.getLongExtra(AlarmScheduler.EXTRA_OCCURRENCE_AT, System.currentTimeMillis());
         int snoozeIndex = intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_INDEX, 0);
         if (snoozeIndex == 0 && !"once".equals(alarm.optString("frequency"))) {

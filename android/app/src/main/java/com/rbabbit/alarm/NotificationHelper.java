@@ -11,16 +11,26 @@ import android.os.Build;
 
 import org.json.JSONObject;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 /** Creates the native notification card used when an alarm is ringing. */
 public final class NotificationHelper {
     public static final String CHANNEL_ID = "alarm_ringing_v2";
     private static final String FALLBACK_CHANNEL_ID = "alarm_fallback_v2";
+    private static final String NEXT_ALARM_CHANNEL_ID = "alarm_next_v1";
     private static final int NOTIFICATION_ID_BASE = 4101;
+    private static final int NEXT_NOTIFICATION_ID_BASE = 5101;
 
     private NotificationHelper() { }
 
     public static int notificationId(String alarmId) {
         return NOTIFICATION_ID_BASE + (alarmId == null ? 0 : (alarmId.hashCode() & 0x0fffffff));
+    }
+
+    private static int nextNotificationId(String alarmId) {
+        return NEXT_NOTIFICATION_ID_BASE + (alarmId == null ? 0 : (alarmId.hashCode() & 0x0fffffff));
     }
 
     public static void createChannel(Context context) {
@@ -54,6 +64,16 @@ public final class NotificationHelper {
         fallback.enableVibration(true);
         fallback.setVibrationPattern(new long[]{0, 350, 250, 350});
         manager.createNotificationChannel(fallback);
+
+        NotificationChannel nextAlarm = new NotificationChannel(
+                NEXT_ALARM_CHANNEL_ID,
+                "Next alarm reminders",
+                NotificationManager.IMPORTANCE_LOW
+        );
+        nextAlarm.setDescription("Shows when the next repeat-alarm occurrence is scheduled");
+        nextAlarm.setSound(null, null);
+        nextAlarm.enableVibration(false);
+        manager.createNotificationChannel(nextAlarm);
     }
 
     public static boolean areNotificationsEnabled(Context context) {
@@ -123,8 +143,46 @@ public final class NotificationHelper {
         }
     }
 
+    public static void showNextAlarm(Context context, JSONObject alarm, long nextAtMs) {
+        if (alarm == null || nextAtMs <= 0) return;
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager == null) return;
+
+        createChannel(context);
+        String alarmId = alarm.optString("id");
+        String name = alarm.optString("name", "Alarm");
+        Intent mainIntent = new Intent(context, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        PendingIntent contentIntent = PendingIntent.getActivity(
+                context, AlarmScheduler.requestCode(alarmId), mainIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+        Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                ? new Notification.Builder(context, NEXT_ALARM_CHANNEL_ID)
+                : new Notification.Builder(context).setPriority(Notification.PRIORITY_LOW);
+        builder.setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
+                .setContentTitle(name)
+                .setContentText("Next alarm at " + formatTime(nextAtMs))
+                .setWhen(nextAtMs)
+                .setShowWhen(true)
+                .setCategory(Notification.CATEGORY_ALARM)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(true)
+                .setContentIntent(contentIntent);
+        manager.notify(nextNotificationId(alarmId), builder.build());
+    }
+
+    private static String formatTime(long atMs) {
+        return new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(atMs));
+    }
+
     public static void cancel(Context context, String alarmId) {
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) manager.cancel(notificationId(alarmId));
+    }
+
+    public static void cancelNextAlarm(Context context, String alarmId) {
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) manager.cancel(nextNotificationId(alarmId));
     }
 }

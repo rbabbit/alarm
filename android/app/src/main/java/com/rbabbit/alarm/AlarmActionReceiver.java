@@ -30,9 +30,10 @@ public final class AlarmActionReceiver extends BroadcastReceiver {
         }
         // Stopping an occurrence must not change the user's enabled preference.
         // The main-screen switch is user-controlled; scheduling follows that state.
-        AlarmScheduler.scheduleNextBaseline(context, alarm, System.currentTimeMillis());
+        long nextAtMs = AlarmScheduler.scheduleNextBaseline(context, alarm, System.currentTimeMillis());
         AlarmStore.appendHistory(context, alarm, "stopped");
         stopRinging(context, alarmId);
+        NotificationHelper.showNextAlarm(context, alarm, nextAtMs);
     }
 
     public static void performSnooze(Context context, String alarmId, int snoozeIndex) {
@@ -46,9 +47,10 @@ public final class AlarmActionReceiver extends BroadcastReceiver {
             performStop(context, alarmId);
             return;
         }
-        AlarmScheduler.scheduleSnooze(context, alarm, minutes, snoozeIndex + 1);
+        long nextAtMs = AlarmScheduler.scheduleSnooze(context, alarm, minutes, snoozeIndex + 1);
         AlarmStore.appendHistory(context, alarm, "snoozed " + minutes + " minutes");
         stopRinging(context, alarmId);
+        NotificationHelper.showNextAlarm(context, alarm, nextAtMs);
     }
 
     private static void stopRinging(Context context, String alarmId) {
