@@ -270,9 +270,10 @@ public final class MainActivity extends Activity {
     private void showAlarms() {
         currentPage = "alarms";
         Button add = headerButton("+");
-        add.setOnClickListener(view -> showEditAlarm(defaultAlarm()));
+        add.setOnClickListener(view -> addCalendarAlarm());
+        add.setContentDescription("Add calendar alarm");
         Button calendarAdd = calendarAddButton();
-        calendarAdd.setOnClickListener(view -> addCalendarAlarm());
+        calendarAdd.setOnClickListener(view -> showEditAlarm(defaultAlarm()));
         resetToolbar("Alarms", headerActions(add, calendarAdd));
         LinearLayout column = pageColumn();
         JSONArray alarms = AlarmStore.getAlarms(this);
@@ -1178,7 +1179,7 @@ public final class MainActivity extends Activity {
         Button button = plainButton("+", 26);
         button.setTextColor(MUTED);
         button.setGravity(Gravity.CENTER);
-        button.setContentDescription("Add calendar alarm");
+        button.setContentDescription("Add alarm");
         android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
         background.setColor(Color.WHITE);
         background.setStroke(dp(1), Color.rgb(150, 150, 150));
