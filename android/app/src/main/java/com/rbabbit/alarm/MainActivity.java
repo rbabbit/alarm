@@ -9,6 +9,7 @@ import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.location.Criteria;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -18,7 +19,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
-import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -61,6 +61,8 @@ public final class MainActivity extends Activity {
     private JSONObject editingAlarm;
     private String currentPage = "alarms";
     private Runnable ticker;
+    private TextView weatherStatus;
+    private LinearLayout weatherForecast;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -68,6 +70,10 @@ public final class MainActivity extends Activity {
         getWindow().setStatusBarColor(Color.WHITE);
         getWindow().setNavigationBarColor(Color.WHITE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        if (android.os.Build.VERSION.SDK_INT >= 26) {
+            getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+        }
         NotificationHelper.createChannel(this);
         QuickTimerNotificationHelper.createChannel(this);
         AlarmScheduler.syncAll(this);
@@ -84,6 +90,7 @@ public final class MainActivity extends Activity {
         super.onResume();
         if (!editing && "timers".equals(currentPage)) showTimers();
         if (!editing && "alarms".equals(currentPage)) showAlarms();
+        if (!editing && "weather".equals(currentPage)) refreshWeatherPage();
         if (ticker == null) {
             ticker = new Runnable() {
                 @Override public void run() {
@@ -101,6 +108,24 @@ public final class MainActivity extends Activity {
         if (ticker != null) {
             handler.removeCallbacks(ticker);
             ticker = null;
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode != LOCATION_REQUEST || weatherStatus == null || weatherForecast == null) return;
+        boolean granted = false;
+        for (int result : grantResults) {
+            if (result == PackageManager.PERMISSION_GRANTED) {
+                granted = true;
+                break;
+            }
+        }
+        if (granted) {
+            requestWeather(weatherStatus, weatherForecast);
+        } else {
+            weatherStatus.setText("Location permission was not granted.");
         }
     }
 
@@ -128,22 +153,28 @@ public final class MainActivity extends Activity {
         LinearLayout nav = new LinearLayout(this);
         nav.setGravity(Gravity.CENTER);
         nav.setBackgroundColor(Color.WHITE);
-        nav.setPadding(0, dp(4), 0, dp(4));
-        addNavButton(nav, "◷\nMulti-Timer", "timers");
-        addNavButton(nav, "☰\nAlarms", "alarms");
-        addNavButton(nav, "⊙\nCounter", "counter");
-        addNavButton(nav, "☁\nWeather", "weather");
+        nav.setPadding(0, dp(2), 0, dp(2));
+        addNavButton(nav, "◷", "Multi-Timer", "timers");
+        addNavButton(nav, "☰", "Alarms", "alarms");
+        addNavButton(nav, "⊙", "Counter", "counter");
+        addNavButton(nav, "☁", "Weather", "weather");
         return nav;
     }
 
-    private void addNavButton(LinearLayout nav, String label, String page) {
-        Button button = new Button(this);
-        button.setText(label);
-        button.setTextSize(13);
-        button.setTextColor(INK);
-        button.setAllCaps(false);
+    private void addNavButton(LinearLayout nav, String icon, String label, String page) {
+        LinearLayout button = new LinearLayout(this);
+        button.setOrientation(LinearLayout.VERTICAL);
         button.setGravity(Gravity.CENTER);
-        button.setBackgroundColor(Color.TRANSPARENT);
+        button.setPadding(dp(2), dp(2), dp(2), dp(2));
+        button.setTag(page);
+        button.setBackgroundColor("alarms".equals(page) ? Color.rgb(242, 242, 242) : Color.TRANSPARENT);
+        button.setContentDescription(label);
+        TextView iconView = text(icon, 25, INK);
+        iconView.setGravity(Gravity.CENTER);
+        TextView labelView = text(label, 12, INK);
+        labelView.setGravity(Gravity.CENTER);
+        button.addView(iconView, new LinearLayout.LayoutParams(-1, dp(34)));
+        button.addView(labelView, new LinearLayout.LayoutParams(-1, dp(28)));
         button.setOnClickListener(view -> {
             if ("timers".equals(page)) showTimers();
             else if ("alarms".equals(page)) showAlarms();
@@ -158,6 +189,11 @@ public final class MainActivity extends Activity {
         content.removeAllViews();
         content.addView(pageView, new FrameLayout.LayoutParams(-1, -1));
         bottomNav.setVisibility(showNavigation ? View.VISIBLE : View.GONE);
+        for (int index = 0; index < bottomNav.getChildCount(); index += 1) {
+            View child = bottomNav.getChildAt(index);
+            child.setBackgroundColor(showNavigation && currentPage.equals(child.getTag())
+                    ? Color.rgb(242, 242, 242) : Color.TRANSPARENT);
+        }
         editing = !showNavigation;
     }
 
@@ -219,13 +255,14 @@ public final class MainActivity extends Activity {
         settings.setOnClickListener(view -> showEditAlarm(alarm));
         top.addView(settings, new LinearLayout.LayoutParams(dp(58), dp(58)));
         Switch enabled = new Switch(this);
-        enabled.setText(alarm.optBoolean("enabled", false) ? "ON" : "OFF");
+        enabled.setTextOn("ON");
+        enabled.setTextOff("OFF");
+        enabled.setShowText(true);
         enabled.setTextSize(14);
         enabled.setTextColor(INK);
         enabled.setChecked(alarm.optBoolean("enabled", false));
         enabled.setContentDescription("Enable alarm");
         enabled.setOnCheckedChangeListener((button, checked) -> {
-            button.setText(checked ? "ON" : "OFF");
             AlarmStore.setEnabled(this, alarm.optString("id"), checked);
             AlarmScheduler.syncAll(this);
         });
@@ -340,6 +377,9 @@ public final class MainActivity extends Activity {
         column.addView(sectionTitle("Snooze"));
         Switch snooze = new Switch(this);
         snooze.setText("Allow snooze");
+        snooze.setTextOn("ON");
+        snooze.setTextOff("OFF");
+        snooze.setShowText(true);
         snooze.setTextSize(17);
         snooze.setChecked(editingAlarm.optBoolean("snoozeEnabled", true));
         column.addView(snooze, new LinearLayout.LayoutParams(-1, dp(56)));
@@ -349,6 +389,9 @@ public final class MainActivity extends Activity {
         column.addView(sectionTitle("Enable alarm"));
         Switch enable = new Switch(this);
         enable.setText("Enabled");
+        enable.setTextOn("ON");
+        enable.setTextOff("OFF");
+        enable.setShowText(true);
         enable.setTextSize(17);
         enable.setChecked(editingAlarm.optBoolean("enabled", true));
         column.addView(enable, new LinearLayout.LayoutParams(-1, dp(56)));
@@ -382,13 +425,13 @@ public final class MainActivity extends Activity {
 
         start.setOnClickListener(view -> chooseTime(start, start.getText().toString()));
         end.setOnClickListener(view -> chooseTime(end, end.getText().toString()));
-        CompoundButton.OnCheckedChangeListener typeListener = (button, checked) -> {
-            boolean repeatMode = type.getCheckedRadioButtonId() == repeat.getId();
+        RadioGroup.OnCheckedChangeListener typeListener = (group, checkedId) -> {
+            boolean repeatMode = checkedId == repeat.getId();
             end.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
+            intervalTitle.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
             interval.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
         };
-        repeat.setOnCheckedChangeListener(typeListener);
-        single.setOnCheckedChangeListener(typeListener);
+        type.setOnCheckedChangeListener(typeListener);
         boolean repeatMode = !"once".equals(editingAlarm.optString("frequency"));
         end.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
         intervalTitle.setVisibility(repeatMode ? View.VISIBLE : View.GONE);
@@ -398,6 +441,7 @@ public final class MainActivity extends Activity {
 
     private void showTimers() {
         currentPage = "timers";
+        reconcileExpiredTimers();
         Button add = headerButton("+");
         resetToolbar("Multi-Timer", add);
         LinearLayout column = pageColumn();
@@ -453,12 +497,16 @@ public final class MainActivity extends Activity {
     private LinearLayout timerCard(JSONObject timer) {
         LinearLayout card = card();
         card.addView(text(timer.optString("label", "Timer"), 19, INK));
-        card.addView(text(timer.optString("state", "running"), 15, MUTED));
+        String state = timer.optString("state", "running");
+        String stateLabel = "ringing".equals(state) ? "Ringing" : "paused".equals(state) ? "Paused" : "Running";
+        card.addView(text(stateLabel, 15, MUTED));
         TextView countdown = text(formatRemaining(timer), 30, INK);
         countdown.setGravity(Gravity.RIGHT);
         card.addView(countdown, new LinearLayout.LayoutParams(-1, dp(48)));
         LinearLayout actions = row();
-        Button pause = plainButton("running".equals(timer.optString("state")) ? "Pause" : "Resume", 16);
+        boolean ringing = "ringing".equals(timer.optString("state"));
+        Button pause = plainButton(ringing ? "Ringing" : "running".equals(timer.optString("state")) ? "Pause" : "Resume", 16);
+        pause.setEnabled(!ringing);
         Button stop = plainButton("Stop", 16);
         actions.addView(pause, new LinearLayout.LayoutParams(0, dp(52), 1));
         actions.addView(stop, new LinearLayout.LayoutParams(0, dp(52), 1));
@@ -466,6 +514,24 @@ public final class MainActivity extends Activity {
         stop.setOnClickListener(view -> { QuickTimerActionReceiver.stop(this, timer.optString("id")); showTimers(); });
         card.addView(actions);
         return card;
+    }
+
+    private void reconcileExpiredTimers() {
+        JSONArray timers = QuickTimerStore.getTimers(this);
+        long now = System.currentTimeMillis();
+        for (int index = 0; index < timers.length(); index += 1) {
+            JSONObject timer = timers.optJSONObject(index);
+            if (timer == null || !"running".equals(timer.optString("state"))) continue;
+            if (timer.optLong("endsAtMs", 0) > now) continue;
+            try {
+                timer.put("state", "ringing");
+                timer.put("remainingSeconds", 0);
+                timer.remove("endsAtMs");
+                QuickTimerStore.update(this, timer);
+                AlarmStore.appendHistory(this, timer, "ringing");
+                QuickTimerReceiver.startRinging(this, timer);
+            } catch (Exception ignored) { }
+        }
     }
 
     private void toggleTimer(JSONObject timer) {
@@ -551,34 +617,60 @@ public final class MainActivity extends Activity {
         resetToolbar("Weather", null);
         LinearLayout column = pageColumn();
         column.addView(sectionTitle("Local weather"));
-        TextView status = text("Use your GPS location to request a forecast.", 16, MUTED);
-        column.addView(status);
+        weatherStatus = text("Location not loaded", 16, MUTED);
+        column.addView(weatherStatus, new LinearLayout.LayoutParams(-1, dp(36)));
         Button locate = wideButton("Use my GPS location");
         column.addView(locate, new LinearLayout.LayoutParams(-1, dp(58)));
-        LinearLayout forecast = card();
-        forecast.addView(text("No forecast loaded", 24, INK));
-        column.addView(forecast);
-        column.addView(text("Open-Meteo", 14, MUTED));
-        locate.setOnClickListener(view -> requestWeather(status, forecast));
+        weatherForecast = card();
+        weatherForecast.addView(text("No forecast loaded", 22, INK));
+        column.addView(weatherForecast);
+        column.addView(text("Forecast data: Open-Meteo", 14, MUTED));
+        locate.setOnClickListener(view -> requestWeather(weatherStatus, weatherForecast));
         setPage("Weather", scroll(column), true);
+        if (hasLocationPermission()) {
+            requestWeather(weatherStatus, weatherForecast);
+        }
+    }
+
+    private void refreshWeatherPage() {
+        if (weatherStatus != null && weatherForecast != null
+                && hasLocationPermission()) {
+            requestWeather(weatherStatus, weatherForecast);
+        }
+    }
+
+    private boolean hasLocationPermission() {
+        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void requestWeather(TextView status, LinearLayout forecast) {
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        if (!hasLocationPermission()) {
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_REQUEST);
-            status.setText("Allow location access, then tap again.");
+            status.setText("Location permission is required for the forecast.");
             return;
         }
         LocationManager manager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        if (manager == null) {
+            status.setText("Location services are not available.");
+            return;
+        }
         Location location = null;
         try {
             location = manager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
             if (location == null) location = manager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+            if (location == null) location = manager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER);
         } catch (SecurityException ignored) { }
         if (location == null) {
             status.setText("Waiting for a location fix…");
             try {
-                manager.requestSingleUpdate(LocationManager.NETWORK_PROVIDER, new LocationListener() {
+                Criteria criteria = new Criteria();
+                criteria.setAccuracy(Criteria.ACCURACY_COARSE);
+                criteria.setPowerRequirement(Criteria.POWER_LOW);
+                String provider = manager.getBestProvider(criteria, true);
+                if (provider == null) provider = LocationManager.NETWORK_PROVIDER;
+                String selectedProvider = provider;
+                manager.requestSingleUpdate(selectedProvider, new LocationListener() {
                     @Override public void onLocationChanged(Location result) { loadWeather(result, status, forecast); }
                 }, Looper.getMainLooper());
             } catch (Exception ignored) { status.setText("Location is not available."); }
@@ -598,6 +690,7 @@ public final class MainActivity extends Activity {
                 HttpURLConnection connection = (HttpURLConnection) new URL(query).openConnection();
                 connection.setConnectTimeout(10000);
                 connection.setReadTimeout(10000);
+                connection.setRequestMethod("GET");
                 BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
                 StringBuilder body = new StringBuilder();
                 String line;
@@ -605,12 +698,54 @@ public final class MainActivity extends Activity {
                 reader.close();
                 JSONObject json = new JSONObject(body.toString());
                 JSONObject current = json.optJSONObject("current");
-                final String summary = String.format(Locale.UK, "%.1f°C\n%s\nWind %.1f km/h  •  Humidity %.0f%%\n\n3-day forecast available", current == null ? 0 : current.optDouble("temperature_2m"), weatherCode(current == null ? 0 : current.optInt("weather_code")), current == null ? 0 : current.optDouble("wind_speed_10m"), current == null ? 0 : current.optDouble("relative_humidity_2m"));
-                runOnUiThread(() -> { status.setText("GPS connected"); forecast.removeAllViews(); forecast.addView(text(summary, 21, INK)); });
+                JSONObject daily = json.optJSONObject("daily");
+                final JSONObject currentSnapshot = current;
+                final JSONObject dailySnapshot = daily;
+                final double latitude = location.getLatitude();
+                final double longitude = location.getLongitude();
+                runOnUiThread(() -> renderWeather(status, forecast, currentSnapshot, dailySnapshot, latitude, longitude));
             } catch (Exception error) {
                 runOnUiThread(() -> status.setText("Forecast unavailable. Check your connection."));
             }
         }).start();
+    }
+
+    private void renderWeather(TextView status, LinearLayout forecast, JSONObject current, JSONObject daily,
+                               double latitude, double longitude) {
+        status.setText(String.format(Locale.UK, "GPS connected  •  %.4f, %.4f", latitude, longitude));
+        forecast.removeAllViews();
+        forecast.addView(text("Current weather", 20, INK));
+        TextView temperature = text(String.format(Locale.UK, "%.1f°C", current == null ? 0 : current.optDouble("temperature_2m")), 38, INK);
+        temperature.setTypeface(null, android.graphics.Typeface.BOLD);
+        forecast.addView(temperature, new LinearLayout.LayoutParams(-1, dp(58)));
+        forecast.addView(text(weatherCode(current == null ? 0 : current.optInt("weather_code")), 19, MUTED));
+        forecast.addView(text(String.format(Locale.UK, "Wind %.1f km/h  •  Humidity %.0f%%",
+                current == null ? 0 : current.optDouble("wind_speed_10m"),
+                current == null ? 0 : current.optDouble("relative_humidity_2m")), 16, MUTED));
+
+        if (daily == null) return;
+        forecast.addView(sectionTitle("3-day forecast"));
+        JSONArray dates = daily.optJSONArray("time");
+        JSONArray highs = daily.optJSONArray("temperature_2m_max");
+        JSONArray lows = daily.optJSONArray("temperature_2m_min");
+        JSONArray codes = daily.optJSONArray("weather_code");
+        int count = Math.min(3, dates == null ? 0 : dates.length());
+        for (int index = 0; index < count; index += 1) {
+            LinearLayout day = row();
+            day.setPadding(0, dp(7), 0, dp(7));
+            String date = dates.optString(index, "");
+            String high = highs == null ? "—" : String.format(Locale.UK, "%.0f°C", highs.optDouble(index));
+            String low = lows == null ? "—" : String.format(Locale.UK, "%.0f°C", lows.optDouble(index));
+            String condition = weatherCode(codes == null ? 0 : codes.optInt(index));
+            TextView dateView = text(date, 15, INK);
+            TextView conditionView = text(condition, 15, MUTED);
+            TextView temperatureView = text(high + " / " + low, 15, INK);
+            temperatureView.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+            day.addView(dateView, new LinearLayout.LayoutParams(0, dp(34), 1));
+            day.addView(conditionView, new LinearLayout.LayoutParams(0, dp(34), 1.25f));
+            day.addView(temperatureView, new LinearLayout.LayoutParams(0, dp(34), 1));
+            forecast.addView(day);
+        }
     }
 
     private String weatherCode(int code) {
@@ -746,7 +881,31 @@ public final class MainActivity extends Activity {
 
     private android.graphics.drawable.Drawable outline() { android.graphics.drawable.GradientDrawable drawable = new android.graphics.drawable.GradientDrawable(); drawable.setColor(Color.WHITE); drawable.setStroke(dp(2), INK); drawable.setCornerRadius(dp(24)); return drawable; }
 
-    private ToggleButton dayButton(String label) { ToggleButton button = new ToggleButton(this); button.setTextOn(label); button.setTextOff(label); button.setTextSize(15); button.setTextColor(INK); button.setAllCaps(false); return button; }
+    private ToggleButton dayButton(String label) {
+        ToggleButton button = new ToggleButton(this);
+        button.setTextOn(label);
+        button.setTextOff(label);
+        button.setTextSize(16);
+        button.setTextColor(new android.content.res.ColorStateList(
+                new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
+                new int[]{Color.WHITE, INK}));
+        button.setAllCaps(false);
+        button.setMinWidth(0);
+        button.setPadding(0, 0, 0, 0);
+        android.graphics.drawable.GradientDrawable selected = new android.graphics.drawable.GradientDrawable();
+        selected.setColor(INK);
+        selected.setCornerRadius(dp(24));
+        android.graphics.drawable.GradientDrawable unselected = new android.graphics.drawable.GradientDrawable();
+        unselected.setColor(Color.WHITE);
+        unselected.setStroke(dp(1), Color.rgb(150, 150, 150));
+        unselected.setCornerRadius(dp(24));
+        android.graphics.drawable.StateListDrawable states = new android.graphics.drawable.StateListDrawable();
+        states.addState(new int[]{android.R.attr.state_checked}, selected);
+        states.addState(new int[]{}, unselected);
+        button.setBackground(states);
+        button.setElevation(dp(1));
+        return button;
+    }
 
     private RadioButton radio(String value) { RadioButton radio = new RadioButton(this); radio.setId(View.generateViewId()); radio.setText(value); radio.setTextSize(15); radio.setTextColor(INK); return radio; }
 
