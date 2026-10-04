@@ -146,17 +146,37 @@ public final class AlarmScheduler {
         int end = parseMinutes(endTime);
         int interval = Math.max(1, alarm.optInt("intervalMinutes", 60));
         String frequency = alarm.optString("frequency", "several");
-        Set<String> days = readDays(alarm.optJSONArray("repeatDays"));
+        JSONArray repeatDayValues = alarm.optJSONArray("repeatDays");
+        Set<String> days = readDays(repeatDayValues);
         Calendar after = Calendar.getInstance();
         after.setTimeInMillis(afterMs);
         if ("once".equals(frequency)) {
-            Calendar occurrence = (Calendar) after.clone();
-            occurrence.set(Calendar.HOUR_OF_DAY, start / 60);
-            occurrence.set(Calendar.MINUTE, start % 60);
-            occurrence.set(Calendar.SECOND, 0);
-            occurrence.set(Calendar.MILLISECOND, 0);
-            if (occurrence.getTimeInMillis() <= afterMs) occurrence.add(Calendar.DAY_OF_YEAR, 1);
-            return occurrence.getTimeInMillis();
+            if (repeatDayValues == null) {
+                // Legacy single alarms did not persist weekday metadata.
+                Calendar occurrence = (Calendar) after.clone();
+                occurrence.set(Calendar.HOUR_OF_DAY, start / 60);
+                occurrence.set(Calendar.MINUTE, start % 60);
+                occurrence.set(Calendar.SECOND, 0);
+                occurrence.set(Calendar.MILLISECOND, 0);
+                if (occurrence.getTimeInMillis() <= afterMs) occurrence.add(Calendar.DAY_OF_YEAR, 1);
+                return occurrence.getTimeInMillis();
+            }
+            if (days.isEmpty()) return -1;
+
+            for (int offset = 0; offset <= 7; offset += 1) {
+                Calendar base = (Calendar) after.clone();
+                base.set(Calendar.HOUR_OF_DAY, 0);
+                base.set(Calendar.MINUTE, 0);
+                base.set(Calendar.SECOND, 0);
+                base.set(Calendar.MILLISECOND, 0);
+                base.add(Calendar.DAY_OF_YEAR, offset);
+                if (!days.contains(dayCode(base.get(Calendar.DAY_OF_WEEK)))) continue;
+
+                Calendar occurrence = (Calendar) base.clone();
+                occurrence.add(Calendar.MINUTE, start);
+                if (occurrence.getTimeInMillis() > afterMs) return occurrence.getTimeInMillis();
+            }
+            return -1;
         }
         for (int offset = 0; offset <= 8; offset += 1) {
             Calendar base = (Calendar) after.clone();

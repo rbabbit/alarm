@@ -70,7 +70,7 @@ public final class NotificationHelper {
                 "Next alarm reminders",
                 NotificationManager.IMPORTANCE_LOW
         );
-        nextAlarm.setDescription("Shows when the next repeat-alarm occurrence is scheduled");
+        nextAlarm.setDescription("Shows when the next alarm occurrence is scheduled");
         nextAlarm.setSound(null, null);
         nextAlarm.enableVibration(false);
         manager.createNotificationChannel(nextAlarm);
@@ -159,9 +159,13 @@ public final class NotificationHelper {
         Notification.Builder builder = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 ? new Notification.Builder(context, NEXT_ALARM_CHANNEL_ID)
                 : new Notification.Builder(context).setPriority(Notification.PRIORITY_LOW);
+        String frequency = alarm.optString("frequency", "several");
+        String nextAlarmText = "once".equals(frequency)
+                ? "Next alarm " + formatSingleAlarmTime(nextAtMs)
+                : "Next alarm at " + formatTime(nextAtMs);
         builder.setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
                 .setContentTitle(name)
-                .setContentText("Next alarm at " + formatTime(nextAtMs))
+                .setContentText(nextAlarmText)
                 .setWhen(nextAtMs)
                 .setShowWhen(true)
                 .setCategory(Notification.CATEGORY_ALARM)
@@ -174,6 +178,10 @@ public final class NotificationHelper {
 
     private static String formatTime(long atMs) {
         return new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date(atMs));
+    }
+
+    private static String formatSingleAlarmTime(long atMs) {
+        return new SimpleDateFormat("EEEE 'at' HH:mm", Locale.getDefault()).format(new Date(atMs));
     }
 
     public static void cancel(Context context, String alarmId) {
