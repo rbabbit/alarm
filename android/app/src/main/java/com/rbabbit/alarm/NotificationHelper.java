@@ -13,8 +13,8 @@ import org.json.JSONObject;
 
 /** Creates the native notification card used when an alarm is ringing. */
 public final class NotificationHelper {
-    public static final String CHANNEL_ID = "alarm_ringing";
-    private static final String FALLBACK_CHANNEL_ID = "alarm_fallback";
+    public static final String CHANNEL_ID = "alarm_ringing_v2";
+    private static final String FALLBACK_CHANNEL_ID = "alarm_fallback_v2";
     private static final int NOTIFICATION_ID_BASE = 4101;
 
     private NotificationHelper() { }
@@ -33,7 +33,7 @@ public final class NotificationHelper {
                 NotificationManager.IMPORTANCE_HIGH
         );
         channel.setDescription("Ringing alarms and alarm controls");
-        channel.setSound(null, new AudioAttributes.Builder()
+        channel.setSound(android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI, new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build());
@@ -54,6 +54,12 @@ public final class NotificationHelper {
         fallback.enableVibration(true);
         fallback.setVibrationPattern(new long[]{0, 350, 250, 350});
         manager.createNotificationChannel(fallback);
+    }
+
+    public static boolean areNotificationsEnabled(Context context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return true;
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        return manager == null || manager.areNotificationsEnabled();
     }
 
     public static Notification buildAlarmNotification(Context context, JSONObject alarm, long occurrenceAtMs, int snoozeIndex) {

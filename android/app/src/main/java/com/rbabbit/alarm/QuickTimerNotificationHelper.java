@@ -13,7 +13,7 @@ import org.json.JSONObject;
 
 /** Native high-priority notification and actions for Multi-Timer ringing. */
 public final class QuickTimerNotificationHelper {
-    public static final String CHANNEL_ID = "quick_timer_ringing";
+    public static final String CHANNEL_ID = "quick_timer_ringing_v2";
     private static final int NOTIFICATION_ID_BASE = 5201;
 
     private QuickTimerNotificationHelper() { }
@@ -28,13 +28,19 @@ public final class QuickTimerNotificationHelper {
         if (manager == null) return;
         NotificationChannel channel = new NotificationChannel(CHANNEL_ID, "Multi-Timers", NotificationManager.IMPORTANCE_HIGH);
         channel.setDescription("Ringing Multi-Timers and timer controls");
-        channel.setSound(null, new AudioAttributes.Builder()
+        channel.setSound(android.provider.Settings.System.DEFAULT_ALARM_ALERT_URI, new AudioAttributes.Builder()
                 .setUsage(AudioAttributes.USAGE_ALARM)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
                 .build());
         channel.enableVibration(true);
         channel.setVibrationPattern(new long[]{0, 350, 250, 350});
         manager.createNotificationChannel(channel);
+    }
+
+    public static boolean areNotificationsEnabled(Context context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) return true;
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        return manager == null || manager.areNotificationsEnabled();
     }
 
     public static Notification build(Context context, JSONObject timer) {
@@ -61,6 +67,7 @@ public final class QuickTimerNotificationHelper {
                 .setOngoing(true)
                 .setAutoCancel(false)
                 .setContentIntent(content)
+                .setTimeoutAfter(Math.max(1, timer.optInt("ringDurationSeconds", 60)) * 1000L)
                 .addAction(new Notification.Action.Builder(android.R.drawable.ic_media_pause, "Snooze 5 min",
                         PendingIntent.getBroadcast(context, notificationId(timerId) + 1, snooze,
                                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)).build())

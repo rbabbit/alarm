@@ -1,6 +1,7 @@
 package com.rbabbit.alarm;
 
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
 import android.os.Handler;
@@ -13,6 +14,10 @@ import org.json.JSONObject;
 
 /** Plays the alarm sound for the configured duration in the native Android app. */
 public final class AlarmRingingService extends Service {
+    private static final String PREFS = "alarm_ringing_state";
+    private static final String KEY_ID = "alarm_id";
+    private static final String KEY_OCCURRENCE = "occurrence_at_ms";
+    private static final String KEY_SNOOZE = "snooze_index";
     private final Handler handler = new Handler();
     private RingingAudioPlayer sharedAudio;
     private String alarmId;
@@ -29,22 +34,31 @@ public final class AlarmRingingService extends Service {
             }
         }
         NotificationHelper.cancel(this, alarmId);
+        clearActive(this, alarmId);
         stopSelf();
     };
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        alarmId = intent == null ? null : intent.getStringExtra(AlarmScheduler.EXTRA_ALARM_ID);
-        long occurrence = intent == null ? System.currentTimeMillis() : intent.getLongExtra(AlarmScheduler.EXTRA_OCCURRENCE_AT, System.currentTimeMillis());
-        int snoozeIndex = intent == null ? 0 : intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_INDEX, 0);
+        android.content.SharedPreferences preferences = getSharedPreferences(PREFS, MODE_PRIVATE);
+        alarmId = intent == null ? preferences.getString(KEY_ID, null) : intent.getStringExtra(AlarmScheduler.EXTRA_ALARM_ID);
+        long occurrence = intent == null ? preferences.getLong(KEY_OCCURRENCE, System.currentTimeMillis()) : intent.getLongExtra(AlarmScheduler.EXTRA_OCCURRENCE_AT, System.currentTimeMillis());
+        int snoozeIndex = intent == null ? preferences.getInt(KEY_SNOOZE, 0) : intent.getIntExtra(AlarmScheduler.EXTRA_SNOOZE_INDEX, 0);
         JSONObject alarm = AlarmStore.findAlarm(this, alarmId);
         if (alarm == null) return START_NOT_STICKY;
+        preferences.edit().putString(KEY_ID, alarmId).putLong(KEY_OCCURRENCE, occurrence).putInt(KEY_SNOOZE, snoozeIndex).apply();
         NotificationHelper.createChannel(this);
-        startForegroundCompat(NotificationHelper.buildAlarmNotification(this, alarm, occurrence, snoozeIndex));
+        try {
+            startForegroundCompat(NotificationHelper.buildAlarmNotification(this, alarm, occurrence, snoozeIndex));
+        } catch (RuntimeException error) {
+            NotificationHelper.show(this, alarm, occurrence, snoozeIndex);
+            stopSelf();
+            return START_NOT_STICKY;
+        }
         playAlarm(alarm.optString("sound", "classic"), alarm.optDouble("volume", 1.0));
         handler.removeCallbacks(timeout);
         handler.postDelayed(timeout, Math.max(1, alarm.optInt("durationSeconds", 60)) * 1000L);
-        return START_NOT_STICKY;
+        return START_STICKY;
     }
 
     private void startForegroundCompat(android.app.Notification notification) {
@@ -76,6 +90,11 @@ public final class AlarmRingingService extends Service {
             sharedAudio.release();
             sharedAudio = null;
         }
+    }
+
+    public static void clearActive(Context context, String alarmId) {
+        android.content.SharedPreferences preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+        if (alarmId == null || alarmId.equals(preferences.getString(KEY_ID, null))) preferences.edit().clear().apply();
     }
 
     @Nullable

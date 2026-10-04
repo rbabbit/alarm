@@ -2,8 +2,10 @@ package com.rbabbit.alarm;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.app.TimePickerDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.location.Location;
@@ -13,6 +15,7 @@ import android.location.Criteria;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
@@ -72,6 +75,8 @@ public final class MainActivity extends Activity {
     private LinearLayout weatherForecast;
     private int weatherRequestGeneration;
     private LinearLayout timerList;
+    private boolean exactAlarmAccess;
+    private boolean exactAlarmPromptShowing;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -88,8 +93,10 @@ public final class MainActivity extends Activity {
         QuickTimerNotificationHelper.createChannel(this);
         AlarmScheduler.syncAll(this);
         QuickTimerScheduler.syncAll(this);
+        exactAlarmAccess = AlarmScheduler.canScheduleExactAlarms(this);
         buildShell();
         showAlarms();
+        maybeRequestExactAlarmAccess();
         if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_REQUEST);
         }
@@ -98,6 +105,12 @@ public final class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        boolean currentExactAlarmAccess = AlarmScheduler.canScheduleExactAlarms(this);
+        if (currentExactAlarmAccess && !exactAlarmAccess) {
+            AlarmScheduler.syncAll(this);
+            QuickTimerScheduler.syncAll(this);
+        }
+        exactAlarmAccess = currentExactAlarmAccess;
         if (!editing && "timers".equals(currentPage)) showTimers();
         if (!editing && "alarms".equals(currentPage)) showAlarms();
         if (!editing && "weather".equals(currentPage)) refreshWeatherPage();
@@ -127,6 +140,10 @@ public final class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == NOTIFICATION_REQUEST) {
+            if (!NotificationHelper.areNotificationsEnabled(this)) showNotificationSettingsPrompt();
+            return;
+        }
         if (requestCode != LOCATION_REQUEST || weatherStatus == null || weatherForecast == null) return;
         boolean granted = false;
         for (int result : grantResults) {
@@ -344,6 +361,9 @@ public final class MainActivity extends Activity {
         Button delete = headerButton("delete");
         delete.setTextSize(14);
         delete.setOnClickListener(view -> {
+            AlarmRingingService.clearActive(this, editingAlarm.optString("id"));
+            stopService(new android.content.Intent(this, AlarmRingingService.class));
+            NotificationHelper.cancel(this, editingAlarm.optString("id"));
             AlarmScheduler.cancelAlarm(this, editingAlarm.optString("id"));
             AlarmStore.remove(this, editingAlarm.optString("id"));
             AlarmScheduler.syncAll(this);
@@ -455,6 +475,8 @@ public final class MainActivity extends Activity {
                 editingAlarm.put("enabled", enable.isChecked());
                 AlarmStore.upsert(this, editingAlarm);
                 AlarmScheduler.syncAll(this);
+                maybeRequestExactAlarmAccess();
+                warnIfNotificationsDisabled();
                 showAlarms();
             } catch (JSONException ignored) { }
         });
@@ -541,12 +563,15 @@ public final class MainActivity extends Activity {
                         .put("state", "running")
                         .put("snoozeCount", 0)
                         .put("sound", timerSoundCodes[timerSound.getSelectedItemPosition()])
-                        .put("volume", 1.0);
+                        .put("volume", 1.0)
+                        .put("ringDurationSeconds", 60);
                 JSONArray updated = QuickTimerStore.getTimers(this);
                 if (updated.length() < 10) {
                     updated.put(timer);
                     QuickTimerStore.replace(this, updated);
                     QuickTimerScheduler.syncAll(this);
+                    maybeRequestExactAlarmAccess();
+                    warnIfNotificationsDisabled();
                     AlarmStore.appendHistory(this, timer, "started");
                     showTimers();
                 }
@@ -692,11 +717,16 @@ public final class MainActivity extends Activity {
         weatherRequestGeneration += 1;
         resetToolbar("Weather", null);
         LinearLayout column = pageColumn();
-        column.addView(sectionTitle("Local weather"));
+        LinearLayout weatherHeader = row();
+        TextView weatherTitle = sectionTitle("Local weather");
+        weatherHeader.addView(weatherTitle, new LinearLayout.LayoutParams(0, dp(48), 1));
+        Button locate = plainButton("Locate Me", 14);
+        locate.setAllCaps(false);
+        locate.setContentDescription("Use my GPS location");
+        weatherHeader.addView(locate, new LinearLayout.LayoutParams(dp(108), dp(44)));
+        column.addView(weatherHeader);
         weatherStatus = text("Location not loaded", 16, MUTED);
         column.addView(weatherStatus, new LinearLayout.LayoutParams(-1, dp(36)));
-        Button locate = wideButton("Use my GPS location");
-        column.addView(locate, new LinearLayout.LayoutParams(-1, dp(58)));
         weatherForecast = card();
         weatherForecast.addView(text("No forecast loaded", 22, INK));
         column.addView(weatherForecast);
@@ -706,6 +736,56 @@ public final class MainActivity extends Activity {
         if (hasLocationPermission()) {
             requestWeather(weatherStatus, weatherForecast);
         }
+    }
+
+    private void maybeRequestExactAlarmAccess() {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S
+                || AlarmScheduler.canScheduleExactAlarms(this)
+                || exactAlarmPromptShowing
+                || !hasActiveSchedules()) return;
+        exactAlarmPromptShowing = true;
+        new AlertDialog.Builder(this)
+                .setTitle("Allow exact alarms")
+                .setMessage("Exact alarm access keeps alarms and timers on their scheduled minute, including while the phone is idle.")
+                .setNegativeButton("Not now", (dialog, which) -> exactAlarmPromptShowing = false)
+                .setPositiveButton("Open settings", (dialog, which) -> {
+                    exactAlarmPromptShowing = false;
+                    startActivity(AlarmScheduler.exactAlarmSettingsIntent(this));
+                })
+                .setOnCancelListener(dialog -> exactAlarmPromptShowing = false)
+                .show();
+    }
+
+    private boolean hasActiveSchedules() {
+        JSONArray alarms = AlarmStore.getAlarms(this);
+        for (int index = 0; index < alarms.length(); index += 1) {
+            JSONObject alarm = alarms.optJSONObject(index);
+            if (alarm != null && alarm.optBoolean("enabled", false)) return true;
+        }
+        JSONArray timers = QuickTimerStore.getTimers(this);
+        for (int index = 0; index < timers.length(); index += 1) {
+            JSONObject timer = timers.optJSONObject(index);
+            if (timer != null && ("running".equals(timer.optString("state")) || "ringing".equals(timer.optString("state")))) return true;
+        }
+        return false;
+    }
+
+    private void warnIfNotificationsDisabled() {
+        if (!NotificationHelper.areNotificationsEnabled(this)) showNotificationSettingsPrompt();
+    }
+
+    private void showNotificationSettingsPrompt() {
+        if (isFinishing()) return;
+        new AlertDialog.Builder(this)
+                .setTitle("Notifications are disabled")
+                .setMessage("Android is blocking the alarm notification. Enable notifications so the alarm controls appear when the app is closed.")
+                .setNegativeButton("Not now", null)
+                .setPositiveButton("Open settings", (dialog, which) -> {
+                    Intent settings = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+                    startActivity(settings);
+                })
+                .show();
     }
 
     private void refreshWeatherPage() {

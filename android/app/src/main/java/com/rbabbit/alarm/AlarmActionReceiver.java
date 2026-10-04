@@ -24,7 +24,10 @@ public final class AlarmActionReceiver extends BroadcastReceiver {
 
     public static void performStop(Context context, String alarmId) {
         JSONObject alarm = AlarmStore.findAlarm(context, alarmId);
-        if (alarm == null) return;
+        if (alarm == null) {
+            stopRinging(context, alarmId);
+            return;
+        }
         if ("once".equals(alarm.optString("frequency"))) {
             AlarmStore.setEnabled(context, alarmId, false);
         } else {
@@ -36,7 +39,10 @@ public final class AlarmActionReceiver extends BroadcastReceiver {
 
     public static void performSnooze(Context context, String alarmId, int snoozeIndex) {
         JSONObject alarm = AlarmStore.findAlarm(context, alarmId);
-        if (alarm == null) return;
+        if (alarm == null) {
+            stopRinging(context, alarmId);
+            return;
+        }
         int minutes = AlarmScheduler.nextSnoozeMinutes(alarm, snoozeIndex);
         if (minutes <= 0) {
             performStop(context, alarmId);
@@ -48,6 +54,7 @@ public final class AlarmActionReceiver extends BroadcastReceiver {
     }
 
     private static void stopRinging(Context context, String alarmId) {
+        AlarmRingingService.clearActive(context, alarmId);
         context.stopService(new Intent(context, AlarmRingingService.class));
         NotificationHelper.cancel(context, alarmId);
     }

@@ -47,6 +47,7 @@ public final class QuickTimerActionReceiver extends BroadcastReceiver {
     }
 
     private static void stopRinging(Context context, String timerId) {
+        QuickTimerRingingService.clearActive(context, timerId);
         context.stopService(new Intent(context, QuickTimerRingingService.class));
         QuickTimerNotificationHelper.cancel(context, timerId);
         QuickTimerScheduler.broadcastStateChanged(context);
