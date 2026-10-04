@@ -282,6 +282,7 @@ function showView(view) {
   Object.entries(screens).forEach(([name, screen]) => screen.classList.toggle("hidden", name !== view));
   document.querySelectorAll(".bottom-nav").forEach((nav) => { nav.innerHTML = navMarkup(view); });
   render();
+  if (view === "info") void loadWeather();
   syncNativeSwitches();
 }
 
@@ -709,20 +710,16 @@ function currentPosition() {
     navigator.geolocation.getCurrentPosition(resolve, (error) => {
       const messages = { 1: "Location permission was denied.", 2: "Your location could not be found.", 3: "Location lookup timed out." };
       reject(new Error(messages[error.code] || "Location lookup failed."));
-    }, { enableHighAccuracy: true, maximumAge: 300000, timeout: 15000 });
+    }, { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
   });
 }
 
-async function loadWeather(useStoredLocation = false) {
+async function loadWeather() {
   setWeatherMessage("Getting your location and Open-Meteo forecast…");
   try {
-    let latitude = weatherState.latitude;
-    let longitude = weatherState.longitude;
-    if (!useStoredLocation || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      const position = await currentPosition();
-      latitude = position.coords.latitude;
-      longitude = position.coords.longitude;
-    }
+    const position = await currentPosition();
+    const latitude = position.coords.latitude;
+    const longitude = position.coords.longitude;
     const url = new URL(OPEN_METEO_ENDPOINT);
     url.search = new URLSearchParams({ latitude: latitude.toFixed(6), longitude: longitude.toFixed(6), timezone: "auto", forecast_days: "3", current: "temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m", daily: "temperature_2m_min,temperature_2m_max,weather_code" });
     const response = await fetch(url);
@@ -919,9 +916,6 @@ document.querySelector("#start-quick-timer").addEventListener("click", () => {
   }
   startQuickTimer(Math.round(minutes * 60), document.querySelector("#quick-label").value);
 });
-
-document.querySelector("#weather-load").addEventListener("click", () => { void loadWeather(); });
-document.querySelector("#weather-refresh").addEventListener("click", () => { void loadWeather(true); });
 
 document.querySelector("#quick-timers").addEventListener("click", (event) => {
   const button = event.target.closest("[data-quick-action]");

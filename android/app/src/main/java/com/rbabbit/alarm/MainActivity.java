@@ -728,21 +728,9 @@ public final class MainActivity extends Activity {
         LinearLayout weatherHeader = row();
         TextView weatherTitle = sectionTitle("Local weather");
         weatherHeader.addView(weatherTitle, new LinearLayout.LayoutParams(0, dp(48), 1));
-        weatherStatus = text("Ready", 12, MUTED);
-        weatherStatus.setGravity(Gravity.CENTER);
-        weatherStatus.setPadding(dp(8), 0, dp(8), 0);
-        weatherStatus.setBackground(outline());
-        weatherHeader.addView(weatherStatus, new LinearLayout.LayoutParams(dp(88), dp(34)));
-        Button locate = plainButton("Locate Me", 14);
-        locate.setAllCaps(false);
-        locate.setMinWidth(0);
-        locate.setMinHeight(0);
-        locate.setGravity(Gravity.CENTER);
-        locate.setTextSize(12);
-        locate.setPadding(dp(8), 0, dp(8), 0);
-        locate.setBackground(outline());
-        locate.setContentDescription("Locate Me");
-        weatherHeader.addView(locate, new LinearLayout.LayoutParams(dp(88), dp(40)));
+        weatherStatus = text("Refreshing…", 12, MUTED);
+        weatherStatus.setGravity(Gravity.RIGHT | Gravity.CENTER_VERTICAL);
+        weatherHeader.addView(weatherStatus, new LinearLayout.LayoutParams(dp(92), dp(48)));
         column.addView(weatherHeader);
         weatherForecast = card();
         weatherCoordinates = text("GPS coordinates unavailable", 15, MUTED);
@@ -753,11 +741,8 @@ public final class MainActivity extends Activity {
         weatherForecast.addView(text("No forecast loaded", 22, INK));
         column.addView(weatherForecast);
         column.addView(text("Forecast data: Open-Meteo", 14, MUTED));
-        locate.setOnClickListener(view -> requestWeather(weatherStatus, weatherForecast));
         setPage("Weather", scroll(column), true);
-        if (hasLocationPermission()) {
-            requestWeather(weatherStatus, weatherForecast);
-        }
+        requestWeather(weatherStatus, weatherForecast);
     }
 
     private void maybeRequestExactAlarmAccess(boolean userInitiated) {
@@ -815,28 +800,43 @@ public final class MainActivity extends Activity {
             status.setText("Location services are not available.");
             return;
         }
-        Location location = null;
+        Location fallbackLocation = null;
         try {
-            location = manager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-            if (location == null) location = manager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
-            if (location == null) location = manager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER);
+            fallbackLocation = manager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+            if (fallbackLocation == null) fallbackLocation = manager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER);
+            if (fallbackLocation == null) fallbackLocation = manager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER);
         } catch (SecurityException ignored) { }
-        if (location == null) {
-            status.setText("Waiting for a location fix…");
-            try {
-                Criteria criteria = new Criteria();
-                criteria.setAccuracy(Criteria.ACCURACY_COARSE);
-                criteria.setPowerRequirement(Criteria.POWER_LOW);
-                String provider = manager.getBestProvider(criteria, true);
-                if (provider == null) provider = LocationManager.NETWORK_PROVIDER;
-                String selectedProvider = provider;
+        status.setText("Refreshing…");
+        try {
+            Criteria criteria = new Criteria();
+            criteria.setAccuracy(Criteria.ACCURACY_COARSE);
+            criteria.setPowerRequirement(Criteria.POWER_LOW);
+            String provider = manager.getBestProvider(criteria, true);
+            if (provider == null) provider = LocationManager.NETWORK_PROVIDER;
+            final String selectedProvider = provider;
+            final Location fallback = fallbackLocation;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                manager.getCurrentLocation(selectedProvider, null, getMainExecutor(), result -> {
+                    if (result != null) {
+                        loadWeather(result, status, forecast, requestGeneration);
+                    } else if (fallback != null) {
+                        loadWeather(fallback, status, forecast, requestGeneration);
+                    } else {
+                        status.setText("Location is not available.");
+                    }
+                });
+            } else {
                 manager.requestSingleUpdate(selectedProvider, new LocationListener() {
                     @Override public void onLocationChanged(Location result) { loadWeather(result, status, forecast, requestGeneration); }
                 }, Looper.getMainLooper());
-            } catch (Exception ignored) { status.setText("Location is not available."); }
-            return;
+            }
+        } catch (Exception ignored) {
+            if (fallbackLocation != null) {
+                loadWeather(fallbackLocation, status, forecast, requestGeneration);
+            } else {
+                status.setText("Location is not available.");
+            }
         }
-        loadWeather(location, status, forecast, requestGeneration);
     }
 
     private void loadWeather(Location location, TextView status, LinearLayout forecast, int requestGeneration) {
@@ -934,7 +934,6 @@ public final class MainActivity extends Activity {
 
     private void openGoogleMaps(double latitude, double longitude) {
         Intent maps = new Intent(Intent.ACTION_VIEW, Uri.parse("geo:" + latitude + "," + longitude + "?q=" + latitude + "," + longitude));
-        maps.setPackage("com.google.android.apps.maps");
         if (maps.resolveActivity(getPackageManager()) != null) startActivity(maps);
     }
 
