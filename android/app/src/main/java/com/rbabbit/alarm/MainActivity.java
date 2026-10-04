@@ -3,6 +3,7 @@ package com.rbabbit.alarm;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.DatePickerDialog;
 import android.app.TimePickerDialog;
 import android.content.Context;
 import android.content.Intent;
@@ -50,7 +51,10 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Locale;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.UUID;
+import java.text.SimpleDateFormat;
 
 /** Native Android UI. No WebView, JavaScript bridge, or CSS controls are used here. */
 public final class MainActivity extends Activity {
@@ -267,7 +271,9 @@ public final class MainActivity extends Activity {
         currentPage = "alarms";
         Button add = headerButton("+");
         add.setOnClickListener(view -> showEditAlarm(defaultAlarm()));
-        resetToolbar("Alarms", add);
+        Button calendarAdd = calendarAddButton();
+        calendarAdd.setOnClickListener(view -> addCalendarAlarm());
+        resetToolbar("Alarms", headerActions(add, calendarAdd));
         LinearLayout column = pageColumn();
         JSONArray alarms = AlarmStore.getAlarms(this);
         if (alarms.length() == 0) {
@@ -286,16 +292,20 @@ public final class MainActivity extends Activity {
         toolbar.removeAllViews();
         pageTitle.setText(title);
         toolbar.addView(pageTitle, new LinearLayout.LayoutParams(0, dp(64), 1));
-        if (action != null) toolbar.addView(action, new LinearLayout.LayoutParams(dp(58), dp(58)));
+        if (action != null) {
+            int width = action instanceof ViewGroup ? dp(120) : dp(58);
+            toolbar.addView(action, new LinearLayout.LayoutParams(width, dp(58)));
+        }
     }
 
     private LinearLayout alarmCard(JSONObject alarm) {
         LinearLayout card = card();
         LinearLayout top = row();
+        boolean calendarAlarm = alarm.optLong("calendarAtMs", 0) > 0;
         String start = alarm.optString("startTime", "06:00");
         String frequency = alarm.optString("frequency", "several");
-        String range = start;
-        if (!"once".equals(frequency)) range += " – " + alarm.optString("endTime", "18:00");
+        String range = calendarAlarm ? formatCalendarDateTime(alarm.optLong("calendarAtMs")) : start;
+        if (!calendarAlarm && !"once".equals(frequency)) range += " – " + alarm.optString("endTime", "18:00");
         Button time = plainButton(range, 22);
         time.setGravity(Gravity.LEFT | Gravity.CENTER_VERTICAL);
         time.setOnClickListener(view -> showEditAlarm(alarm));
@@ -321,31 +331,33 @@ public final class MainActivity extends Activity {
         LinearLayout detail = row();
         TextView name = text(alarm.optString("name", "New alarm"), 18, MUTED);
         detail.addView(name, new LinearLayout.LayoutParams(0, dp(44), 1));
-        String frequencyText = "once".equals(frequency) ? "Single Alarm" : "Repeat Alarm";
+        String frequencyText = calendarAlarm ? "Calendar Alarm" : ("once".equals(frequency) ? "Single Alarm" : "Repeat Alarm");
         detail.addView(text(frequencyText, 16, MUTED), new LinearLayout.LayoutParams(-2, dp(44)));
         card.addView(detail);
 
-        LinearLayout days = row();
-        JSONArray selected = alarm.optJSONArray("repeatDays");
-        for (int index = 0; index < DAY_CODES.length; index += 1) {
-            ToggleButton day = dayButton(DAY_LABELS[index]);
-            day.setTag(DAY_CODES[index]);
-            day.setChecked(hasDay(selected, DAY_CODES[index]));
-            day.setOnClickListener(view -> {
-                try {
-                    JSONArray updated = new JSONArray();
-                    for (int dayIndex = 0; dayIndex < DAY_CODES.length; dayIndex += 1) {
-                        View candidate = days.findViewWithTag(DAY_CODES[dayIndex]);
-                        if (candidate instanceof ToggleButton && ((ToggleButton) candidate).isChecked()) updated.put(DAY_CODES[dayIndex]);
-                    }
-                    alarm.put("repeatDays", updated);
-                    AlarmStore.upsert(this, alarm);
-                    AlarmScheduler.syncAll(this);
-                } catch (JSONException ignored) { }
-            });
-            days.addView(day, new LinearLayout.LayoutParams(0, dp(48), 1));
+        if (!calendarAlarm) {
+            LinearLayout days = row();
+            JSONArray selected = alarm.optJSONArray("repeatDays");
+            for (int index = 0; index < DAY_CODES.length; index += 1) {
+                ToggleButton day = dayButton(DAY_LABELS[index]);
+                day.setTag(DAY_CODES[index]);
+                day.setChecked(hasDay(selected, DAY_CODES[index]));
+                day.setOnClickListener(view -> {
+                    try {
+                        JSONArray updated = new JSONArray();
+                        for (int dayIndex = 0; dayIndex < DAY_CODES.length; dayIndex += 1) {
+                            View candidate = days.findViewWithTag(DAY_CODES[dayIndex]);
+                            if (candidate instanceof ToggleButton && ((ToggleButton) candidate).isChecked()) updated.put(DAY_CODES[dayIndex]);
+                        }
+                        alarm.put("repeatDays", updated);
+                        AlarmStore.upsert(this, alarm);
+                        AlarmScheduler.syncAll(this);
+                    } catch (JSONException ignored) { }
+                });
+                days.addView(day, new LinearLayout.LayoutParams(0, dp(48), 1));
+            }
+            card.addView(days);
         }
-        card.addView(days);
         return card;
     }
 
@@ -457,6 +469,11 @@ public final class MainActivity extends Activity {
                 editingAlarm.put("name", safeName(name.getText().toString(), "New alarm"));
                 boolean repeatMode = type.getCheckedRadioButtonId() == repeat.getId();
                 editingAlarm.put("frequency", repeatMode ? "several" : "once");
+                if (repeatMode) {
+                    editingAlarm.remove("calendarAtMs");
+                } else if (editingAlarm.optLong("calendarAtMs", 0) > 0) {
+                    updateCalendarAlarmTime(editingAlarm, start.getText().toString());
+                }
                 JSONArray updatedDays = new JSONArray();
                 for (int index = 0; index < DAY_CODES.length; index += 1) {
                     View candidate = days.findViewWithTag(DAY_CODES[index]);
@@ -992,6 +1009,64 @@ public final class MainActivity extends Activity {
         new TimePickerDialog(this, (view, selectedHour, selectedMinute) -> target.setText(String.format(Locale.UK, "%02d:%02d", selectedHour, selectedMinute)), hour, minute, true).show();
     }
 
+    private void addCalendarAlarm() {
+        Calendar now = Calendar.getInstance();
+        DatePickerDialog datePicker = new DatePickerDialog(this, (view, year, month, day) -> {
+            Calendar selected = Calendar.getInstance();
+            selected.set(year, month, day, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE), 0);
+            selected.set(Calendar.MILLISECOND, 0);
+            new TimePickerDialog(this, (timeView, hour, minute) -> {
+                selected.set(Calendar.HOUR_OF_DAY, hour);
+                selected.set(Calendar.MINUTE, minute);
+                long atMs = selected.getTimeInMillis();
+                if (atMs <= System.currentTimeMillis()) {
+                    new AlertDialog.Builder(this)
+                            .setTitle("Choose a future time")
+                            .setMessage("Calendar alarms must be scheduled in the future.")
+                            .setPositiveButton("OK", null)
+                            .show();
+                    return;
+                }
+                JSONObject alarm = defaultAlarm();
+                try {
+                    alarm.put("frequency", "once");
+                    alarm.put("calendarAtMs", atMs);
+                    alarm.put("startTime", String.format(Locale.UK, "%02d:%02d", hour, minute));
+                    alarm.put("endTime", alarm.optString("startTime"));
+                    alarm.put("repeatDays", new JSONArray());
+                    alarm.put("name", "Calendar alarm");
+                    AlarmStore.upsert(this, alarm);
+                    AlarmScheduler.syncAll(this);
+                    maybeRequestExactAlarmAccess(true);
+                    warnIfNotificationsDisabled();
+                    showAlarms();
+                } catch (JSONException ignored) { }
+            }, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE), true).show();
+        }, now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DAY_OF_MONTH));
+        datePicker.getDatePicker().setMinDate(System.currentTimeMillis() - 1000L);
+        datePicker.show();
+    }
+
+    private void updateCalendarAlarmTime(JSONObject alarm, String value) {
+        long atMs = alarm.optLong("calendarAtMs", 0);
+        if (atMs <= 0) return;
+        try {
+            String[] parts = value.split(":");
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTimeInMillis(atMs);
+            calendar.set(Calendar.HOUR_OF_DAY, Integer.parseInt(parts[0]));
+            calendar.set(Calendar.MINUTE, Integer.parseInt(parts[1]));
+            calendar.set(Calendar.SECOND, 0);
+            calendar.set(Calendar.MILLISECOND, 0);
+            alarm.put("calendarAtMs", calendar.getTimeInMillis());
+        } catch (Exception ignored) { }
+    }
+
+    private String formatCalendarDateTime(long atMs) {
+        if (atMs <= 0) return "Calendar alarm";
+        return new SimpleDateFormat("dd MMM HH:mm", Locale.UK).format(new Date(atMs));
+    }
+
     private String[] timerMinuteLabels() {
         String[] values = new String[61];
         for (int index = 0; index < 60; index += 1) values[index] = (index + 1) + " minutes";
@@ -1097,6 +1172,26 @@ public final class MainActivity extends Activity {
             button.setText(value);
         }
         return button;
+    }
+
+    private Button calendarAddButton() {
+        Button button = plainButton("+", 26);
+        button.setTextColor(MUTED);
+        button.setGravity(Gravity.CENTER);
+        button.setContentDescription("Add calendar alarm");
+        android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
+        background.setColor(Color.WHITE);
+        background.setStroke(dp(1), Color.rgb(150, 150, 150));
+        background.setCornerRadius(dp(18));
+        button.setBackground(background);
+        return button;
+    }
+
+    private LinearLayout headerActions(Button... buttons) {
+        LinearLayout actions = row();
+        actions.setGravity(Gravity.CENTER_VERTICAL | Gravity.RIGHT);
+        for (Button button : buttons) actions.addView(button, new LinearLayout.LayoutParams(dp(54), dp(54)));
+        return actions;
     }
 
     private Button plainButton(String value, float size) { Button button = new Button(this); button.setText(value); button.setTextSize(size); button.setTextColor(INK); button.setAllCaps(false); button.setBackgroundColor(Color.TRANSPARENT); return button; }

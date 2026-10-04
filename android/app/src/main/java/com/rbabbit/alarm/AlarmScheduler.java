@@ -134,6 +134,9 @@ public final class AlarmScheduler {
     }
 
     private static long nextOccurrence(JSONObject alarm, long afterMs) {
+        long calendarAtMs = alarm.optLong("calendarAtMs", 0);
+        if (calendarAtMs > 0) return calendarAtMs > afterMs ? calendarAtMs : -1;
+
         String startTime = alarm.optString("startTime", "06:00");
         String endTime = alarm.optString("endTime", "18:00");
         int start = parseMinutes(startTime);
