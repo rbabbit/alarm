@@ -1,0 +1,1 @@
+Audit first. Make no changes until every visible issue is listed. For each fix, name the exact file and code change. Report separately what is verified by build/tests, what is verified on a device, and what remains untested. 
