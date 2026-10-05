@@ -18,7 +18,6 @@ import java.util.Locale;
 /** Home-screen widget showing the current time and all enabled Kala Time alarms. */
 public final class KalaTimeWidgetProvider extends AppWidgetProvider {
     private static final int OPEN_REQUEST = 4101;
-    private static final int ADD_REQUEST = 4102;
     private static final int CLOCK_REQUEST = 4103;
     private static final int EDIT_REQUEST = 4104;
     private static final String ACTION_REFRESH_CLOCK = "com.rbabbit.alarm.ACTION_REFRESH_WIDGET_CLOCK";
@@ -91,14 +90,6 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
         views.setPendingIntentTemplate(R.id.widget_alarm_list, editPendingIntent);
         views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent);
 
-        Intent addIntent = new Intent(context, MainActivity.class)
-                .putExtra(MainActivity.EXTRA_OPEN_ADD_ALARM, true)
-                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        PendingIntent addPendingIntent = PendingIntent.getActivity(
-                context, ADD_REQUEST, addIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        views.setOnClickPendingIntent(R.id.widget_add_alarm, addPendingIntent);
-        views.setOnClickPendingIntent(R.id.widget_open_alarms, openPendingIntent);
         manager.updateAppWidget(widgetId, views);
         manager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_alarm_list);
     }
