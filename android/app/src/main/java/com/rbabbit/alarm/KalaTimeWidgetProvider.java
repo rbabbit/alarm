@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.RemoteViews;
 
 import java.text.SimpleDateFormat;
@@ -20,7 +21,12 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
     private static final int OPEN_REQUEST = 4101;
     private static final int CLOCK_REQUEST = 4103;
     private static final int EDIT_REQUEST = 4104;
+    private static final int NEXT_CARD_REQUEST = 4105;
     private static final String ACTION_REFRESH_CLOCK = "com.rbabbit.alarm.ACTION_REFRESH_WIDGET_CLOCK";
+    private static final String ACTION_NEXT_ALARM_CARD =
+            "com.rbabbit.alarm.ACTION_NEXT_WIDGET_ALARM_CARD";
+    private static final String WIDGET_STATE_PREFS = "kala_time_widget_state";
+    private static final String CARD_INDEX_PREFIX = "card_index_";
 
     @Override
     public void onEnabled(Context context) {
@@ -37,6 +43,20 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
         if (ACTION_REFRESH_CLOCK.equals(intent.getAction())) {
             refresh(context);
             scheduleClockRefresh(context);
+            return;
+        }
+        if (ACTION_NEXT_ALARM_CARD.equals(intent.getAction())) {
+            int widgetId = intent.getIntExtra(
+                    AppWidgetManager.EXTRA_APPWIDGET_ID,
+                    AppWidgetManager.INVALID_APPWIDGET_ID);
+            if (widgetId != AppWidgetManager.INVALID_APPWIDGET_ID) {
+                int alarmCount = KalaTimeWidgetData.enabledAlarms(context).size();
+                if (alarmCount > 0) {
+                    int nextIndex = (readCardIndex(context, widgetId) + 1) % alarmCount;
+                    writeCardIndex(context, widgetId, nextIndex);
+                    updateWidget(context, AppWidgetManager.getInstance(context), widgetId);
+                }
+            }
             return;
         }
         super.onReceive(context, intent);
@@ -71,13 +91,16 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
         String currentDate = new SimpleDateFormat("EEEE, d MMMM", Locale.getDefault())
                 .format(new Date());
         views.setTextViewText(R.id.widget_current_date, currentDate);
+        int alarmCount = KalaTimeWidgetData.enabledAlarms(context).size();
+        int cardIndex = alarmCount == 0 ? 0 : readCardIndex(context, widgetId) % alarmCount;
 
         Intent serviceIntent = new Intent(context, KalaTimeWidgetService.class)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
                 .setData(Uri.parse("kala-time-widget://alarms/" + widgetId
                         + "/" + AlarmStore.getAlarmRevision(context)));
-        views.setRemoteAdapter(R.id.widget_alarm_list, serviceIntent);
-        views.setEmptyView(R.id.widget_alarm_list, R.id.widget_alarm_empty);
+        views.setRemoteAdapter(R.id.widget_alarm_cards, serviceIntent);
+        views.setEmptyView(R.id.widget_alarm_cards, R.id.widget_alarm_empty);
+        views.setDisplayedChild(R.id.widget_alarm_cards, cardIndex);
 
         Intent openIntent = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -87,11 +110,43 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
         PendingIntent editPendingIntent = PendingIntent.getActivity(
                 context, EDIT_REQUEST, openIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
-        views.setPendingIntentTemplate(R.id.widget_alarm_list, editPendingIntent);
-        views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent);
+        views.setPendingIntentTemplate(R.id.widget_alarm_cards, editPendingIntent);
+        views.setOnClickPendingIntent(R.id.widget_clock_column, openPendingIntent);
+        views.setViewVisibility(
+                R.id.widget_alarm_next,
+                alarmCount > 1 ? View.VISIBLE : View.GONE);
+        if (alarmCount > 1) {
+            views.setOnClickPendingIntent(
+                    R.id.widget_alarm_next,
+                    nextCardPendingIntent(context, widgetId));
+        }
 
         manager.updateAppWidget(widgetId, views);
-        manager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_alarm_list);
+        manager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_alarm_cards);
+    }
+
+    private static int readCardIndex(Context context, int widgetId) {
+        return context.getSharedPreferences(WIDGET_STATE_PREFS, Context.MODE_PRIVATE)
+                .getInt(CARD_INDEX_PREFIX + widgetId, 0);
+    }
+
+    private static void writeCardIndex(Context context, int widgetId, int index) {
+        context.getSharedPreferences(WIDGET_STATE_PREFS, Context.MODE_PRIVATE)
+                .edit()
+                .putInt(CARD_INDEX_PREFIX + widgetId, index)
+                .apply();
+    }
+
+    private static PendingIntent nextCardPendingIntent(Context context, int widgetId) {
+        Intent intent = new Intent(context, KalaTimeWidgetProvider.class)
+                .setAction(ACTION_NEXT_ALARM_CARD)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                .setData(Uri.parse("kala-time-widget://next/" + widgetId));
+        return PendingIntent.getBroadcast(
+                context,
+                NEXT_CARD_REQUEST + widgetId,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     /**

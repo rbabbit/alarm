@@ -4,69 +4,54 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
-    android:orientation="vertical"
+    android:orientation="horizontal"
     android:padding="12dp">
 
-    <RelativeLayout
-        android:id="@+id/widget_header"
-        android:layout_width="match_parent"
-        android:layout_height="96dp">
+    <LinearLayout
+        android:id="@+id/widget_clock_column"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="0.44"
+        android:gravity="center_vertical"
+        android:orientation="vertical">
 
-        <LinearLayout
+        <TextView
+            android:id="@+id/widget_current_date"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_alignParentStart="true"
-            android:layout_centerVertical="true"
-            android:orientation="vertical">
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Saturday, 4 October"
+            android:textColor="#666666"
+            android:textSize="12sp" />
 
-            <TextView
-                android:id="@+id/widget_current_date"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:text="Saturday, 4 October"
-                android:textColor="#666666"
-                android:textSize="12sp" />
-
-            <TextClock
-                android:id="@+id/widget_current_time"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:format12Hour="HH:mm"
-                android:format24Hour="HH:mm"
-                android:text="21:39"
-                android:textColor="#111111"
-                android:textSize="28sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Alarms"
-                android:textColor="#666666"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-    </RelativeLayout>
+        <TextClock
+            android:id="@+id/widget_current_time"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:format12Hour="HH:mm"
+            android:format24Hour="HH:mm"
+            android:text="21:39"
+            android:textColor="#111111"
+            android:textSize="28sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
     <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
+        android:id="@+id/widget_alarm_region"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="8dp"
+        android:layout_weight="0.56">
 
-        <ListView
-            android:id="@+id/widget_alarm_list"
+        <StackView
+            android:id="@+id/widget_alarm_cards"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:divider="#DDDDDD"
-            android:dividerHeight="1dp"
-            android:fadeScrollbars="false"
-            android:scrollbarStyle="insideOverlay"
-            android:scrollbars="vertical"
-            android:stackFromBottom="false" />
+            android:animateLayoutChanges="true"
+            android:clipToPadding="true"
+            android:padding="2dp" />
 
         <TextView
             android:id="@+id/widget_alarm_empty"
@@ -77,6 +62,16 @@
             android:textColor="#666666"
             android:textSize="13sp"
             android:visibility="gone" />
+
+        <ImageButton
+            android:id="@+id/widget_alarm_next"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_gravity="center_vertical|end"
+            android:background="@android:color/transparent"
+            android:contentDescription="Next alarm"
+            android:padding="6dp"
+            android:src="@drawable/ic_arrow_forward" />
     </FrameLayout>
 
 </LinearLayout>

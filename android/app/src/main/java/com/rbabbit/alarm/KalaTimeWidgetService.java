@@ -9,7 +9,7 @@ import android.widget.RemoteViewsService;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Supplies the scrollable enabled-alarm collection rendered by the launcher widget. */
+/** Supplies the enabled-alarm card collection rendered by the launcher widget. */
 public final class KalaTimeWidgetService extends RemoteViewsService {
     @Override
     public RemoteViewsFactory onGetViewFactory(Intent intent) {
