@@ -36,6 +36,44 @@
         android:textColor="#666666"
         android:textSize="12sp" />
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end"
+        android:layout_marginTop="8dp"
+        android:gravity="end"
+        android:orientation="vertical">
+
+        <Button
+            android:id="@+id/widget_add_alarm"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:minWidth="48dp"
+            android:minHeight="48dp"
+            android:background="@drawable/widget_button"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:text="Add"
+            android:textAllCaps="false"
+            android:textColor="#111111"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/widget_open_alarms"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_marginTop="4dp"
+            android:minWidth="48dp"
+            android:minHeight="48dp"
+            android:background="@drawable/widget_button"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:text="Open"
+            android:textAllCaps="false"
+            android:textColor="#111111"
+            android:textSize="12sp" />
+    </LinearLayout>
+
     <ListView
         android:id="@+id/widget_alarm_list"
         android:layout_width="match_parent"
@@ -57,40 +95,4 @@
         android:textSize="13sp"
         android:visibility="gone" />
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:gravity="end"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/widget_add_alarm"
-            android:layout_width="wrap_content"
-            android:layout_height="48dp"
-            android:minWidth="48dp"
-            android:minHeight="48dp"
-            android:background="@drawable/widget_button"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:text="+ Add alarm"
-            android:textAllCaps="false"
-            android:textColor="#111111"
-            android:textSize="12sp" />
-
-        <Button
-            android:id="@+id/widget_open_alarms"
-            android:layout_width="wrap_content"
-            android:layout_height="48dp"
-            android:layout_marginStart="8dp"
-            android:minWidth="48dp"
-            android:minHeight="48dp"
-            android:background="@drawable/widget_button"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:text="Open alarms"
-            android:textAllCaps="false"
-            android:textColor="#111111"
-            android:textSize="12sp" />
-    </LinearLayout>
 </LinearLayout>

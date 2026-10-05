@@ -7,6 +7,7 @@ import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -30,10 +31,13 @@ public final class KalaTimeWidgetData {
             rows.add(new AlarmRow(
                     alarm.optString("id"),
                     occurrence,
-                    new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(nextDate),
+                    new SimpleDateFormat("HH:mm", Locale.getDefault()).format(nextDate),
                     new SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(nextDate),
                     alarm.optString("name", "Alarm").trim()));
         }
+        rows.sort(Comparator
+                .comparingLong((AlarmRow row) -> row.occurrenceAt)
+                .thenComparing(row -> row.alarmId, String.CASE_INSENSITIVE_ORDER));
         return rows;
     }
 
