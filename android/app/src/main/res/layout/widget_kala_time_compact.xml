@@ -5,19 +5,19 @@
     android:layout_height="match_parent"
     android:background="@drawable/widget_background"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:padding="8dp">
 
     <RelativeLayout
         android:id="@+id/widget_header"
         android:layout_width="match_parent"
-        android:layout_height="96dp">
+        android:layout_height="50dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_alignParentStart="true"
             android:layout_centerVertical="true"
-            android:layout_marginEnd="8dp"
+            android:layout_marginEnd="4dp"
             android:layout_toStartOf="@id/widget_action_buttons"
             android:orientation="vertical">
 
@@ -29,65 +29,56 @@
                 android:maxLines="1"
                 android:text="Saturday, 4 October"
                 android:textColor="#666666"
-                android:textSize="12sp" />
+                android:textSize="10sp" />
 
             <TextClock
                 android:id="@+id/widget_current_time"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
                 android:format12Hour="HH:mm"
                 android:format24Hour="HH:mm"
                 android:text="21:39"
                 android:textColor="#111111"
-                android:textSize="28sp"
+                android:textSize="22sp"
                 android:textStyle="bold" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Alarms"
-                android:textColor="#666666"
-                android:textSize="12sp" />
         </LinearLayout>
 
         <LinearLayout
             android:id="@+id/widget_action_buttons"
-            android:layout_width="58dp"
-            android:layout_height="wrap_content"
+            android:layout_width="48dp"
+            android:layout_height="match_parent"
             android:layout_alignParentEnd="true"
-            android:layout_centerVertical="true"
             android:orientation="vertical">
 
             <Button
                 android:id="@+id/widget_add_alarm"
-                android:layout_width="58dp"
-                android:layout_height="38dp"
+                android:layout_width="48dp"
+                android:layout_height="24dp"
                 android:background="@drawable/widget_button"
                 android:minWidth="48dp"
-                android:minHeight="38dp"
-                android:paddingStart="4dp"
-                android:paddingEnd="4dp"
+                android:minHeight="24dp"
+                android:paddingStart="2dp"
+                android:paddingEnd="2dp"
                 android:text="Add"
                 android:textAllCaps="false"
                 android:textColor="#111111"
-                android:textSize="11sp" />
+                android:textSize="9sp" />
 
             <Button
                 android:id="@+id/widget_open_alarms"
-                android:layout_width="58dp"
-                android:layout_height="38dp"
+                android:layout_width="48dp"
+                android:layout_height="24dp"
                 android:layout_marginTop="2dp"
                 android:background="@drawable/widget_button"
                 android:minWidth="48dp"
-                android:minHeight="38dp"
-                android:paddingStart="4dp"
-                android:paddingEnd="4dp"
+                android:minHeight="24dp"
+                android:paddingStart="2dp"
+                android:paddingEnd="2dp"
                 android:text="Open"
                 android:textAllCaps="false"
                 android:textColor="#111111"
-                android:textSize="11sp" />
+                android:textSize="9sp" />
         </LinearLayout>
     </RelativeLayout>
 
@@ -103,6 +94,9 @@
             android:divider="#DDDDDD"
             android:dividerHeight="1dp"
             android:fadeScrollbars="false"
+            android:clipToPadding="true"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
             android:scrollbarStyle="insideOverlay"
             android:scrollbars="vertical"
             android:stackFromBottom="false" />
@@ -114,7 +108,7 @@
             android:gravity="center"
             android:text="No enabled alarms"
             android:textColor="#666666"
-            android:textSize="13sp"
+            android:textSize="10sp"
             android:visibility="gone" />
     </FrameLayout>
 

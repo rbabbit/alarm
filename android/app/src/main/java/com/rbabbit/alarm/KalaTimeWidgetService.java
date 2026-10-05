@@ -53,7 +53,10 @@ public final class KalaTimeWidgetService extends RemoteViewsService {
         public RemoteViews getViewAt(int position) {
             if (position < 0 || position >= rows.size()) return null;
             KalaTimeWidgetData.AlarmRow alarm = rows.get(position);
-            RemoteViews row = new RemoteViews(context.getPackageName(), R.layout.widget_alarm_row);
+            int rowLayout = KalaTimeWidgetProvider.isCompactWidget(context, widgetId)
+                    ? R.layout.widget_alarm_row_compact
+                    : R.layout.widget_alarm_row;
+            RemoteViews row = new RemoteViews(context.getPackageName(), rowLayout);
             row.setTextViewText(R.id.widget_alarm_time, alarm.time);
             row.setTextViewText(R.id.widget_alarm_date, alarm.date);
             row.setTextViewText(R.id.widget_alarm_name, alarm.name);

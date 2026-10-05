@@ -65,7 +65,10 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
     }
 
     private static void updateWidget(Context context, AppWidgetManager manager, int widgetId) {
-        RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_kala_time);
+        int layoutId = isCompactWidget(context, widgetId)
+                ? R.layout.widget_kala_time_compact
+                : R.layout.widget_kala_time;
+        RemoteViews views = new RemoteViews(context.getPackageName(), layoutId);
         String currentDate = new SimpleDateFormat("EEEE, d MMMM", Locale.getDefault())
                 .format(new Date());
         views.setTextViewText(R.id.widget_current_date, currentDate);
@@ -98,6 +101,22 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
         views.setOnClickPendingIntent(R.id.widget_open_alarms, openPendingIntent);
         manager.updateAppWidget(widgetId, views);
         manager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_alarm_list);
+    }
+
+    /**
+     * Android reports the current widget bounds in dp through AppWidgetOptions. The compact
+     * layout is used only for a deliberately short widget; the normal default layout remains
+     * unchanged for the standard 4x3 placement.
+     */
+    static boolean isCompactWidget(Context context, int widgetId) {
+        if (widgetId == AppWidgetManager.INVALID_APPWIDGET_ID) return false;
+        Bundle options = AppWidgetManager.getInstance(context)
+                .getAppWidgetOptions(widgetId);
+        int heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 0);
+        if (heightDp <= 0) {
+            heightDp = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0);
+        }
+        return heightDp > 0 && heightDp < 160;
     }
 
     private static void scheduleClockRefresh(Context context) {
