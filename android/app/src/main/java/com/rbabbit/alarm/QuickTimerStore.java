@@ -22,7 +22,7 @@ public final class QuickTimerStore {
     public static synchronized JSONArray getTimers(Context context) {
         String value = prefs(context).getString(TIMERS, "[]");
         try {
-            return new JSONArray(value);
+            return cap(new JSONArray(value));
         } catch (JSONException ignored) {
             return new JSONArray();
         }
@@ -46,7 +46,7 @@ public final class QuickTimerStore {
 
     public static synchronized void sync(Context context, String timersJson) {
         try {
-            JSONArray timers = new JSONArray(timersJson == null ? "[]" : timersJson);
+            JSONArray timers = cap(new JSONArray(timersJson == null ? "[]" : timersJson));
             prefs(context).edit().putString(TIMERS, timers.toString()).apply();
         } catch (JSONException ignored) {
             // Keep the last valid native timer state.
@@ -54,11 +54,16 @@ public final class QuickTimerStore {
     }
 
     public static synchronized void replace(Context context, JSONArray timers) {
+        JSONArray capped = cap(timers);
+        prefs(context).edit().putString(TIMERS, capped.toString()).apply();
+    }
+
+    private static JSONArray cap(JSONArray timers) {
         JSONArray safe = timers == null ? new JSONArray() : timers;
         int first = Math.max(0, safe.length() - MAX_TIMERS);
         JSONArray capped = new JSONArray();
         for (int index = first; index < safe.length(); index += 1) capped.put(safe.opt(index));
-        prefs(context).edit().putString(TIMERS, capped.toString()).apply();
+        return capped;
     }
 
     public static synchronized boolean update(Context context, JSONObject replacement) {
