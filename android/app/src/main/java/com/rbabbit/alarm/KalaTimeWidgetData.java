@@ -7,12 +7,11 @@ import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 
-/** Shared, sorted alarm data used by the native home-screen widget collection. */
+/** Shared alarm data used by the native home-screen widget collection. */
 public final class KalaTimeWidgetData {
     private KalaTimeWidgetData() { }
 
@@ -29,24 +28,24 @@ public final class KalaTimeWidgetData {
 
             Date nextDate = new Date(occurrence);
             rows.add(new AlarmRow(
+                    alarm.optString("id"),
                     occurrence,
-                    new SimpleDateFormat("HH:mm", Locale.getDefault()).format(nextDate),
+                    new SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(nextDate),
                     new SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(nextDate),
                     alarm.optString("name", "Alarm").trim()));
         }
-        rows.sort(Comparator
-                .comparingLong((AlarmRow row) -> row.occurrenceAt)
-                .thenComparing(row -> row.name, String.CASE_INSENSITIVE_ORDER));
         return rows;
     }
 
     public static final class AlarmRow {
+        public final String alarmId;
         public final long occurrenceAt;
         public final String time;
         public final String date;
         public final String name;
 
-        AlarmRow(long occurrenceAt, String time, String date, String name) {
+        AlarmRow(String alarmId, long occurrenceAt, String time, String date, String name) {
+            this.alarmId = alarmId;
             this.occurrenceAt = occurrenceAt;
             this.time = time;
             this.date = date;

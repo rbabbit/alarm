@@ -57,6 +57,9 @@ public final class KalaTimeWidgetService extends RemoteViewsService {
             row.setTextViewText(R.id.widget_alarm_time, alarm.time);
             row.setTextViewText(R.id.widget_alarm_date, alarm.date);
             row.setTextViewText(R.id.widget_alarm_name, alarm.name);
+            Intent fillInIntent = new Intent()
+                    .putExtra(MainActivity.EXTRA_OPEN_ALARM_ID, alarm.alarmId);
+            row.setOnClickFillInIntent(R.id.widget_alarm_row, fillInIntent);
             return row;
         }
 

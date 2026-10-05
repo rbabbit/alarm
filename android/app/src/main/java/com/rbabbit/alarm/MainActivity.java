@@ -59,6 +59,7 @@ import java.text.SimpleDateFormat;
 /** Native Android UI. No WebView, JavaScript bridge, or CSS controls are used here. */
 public final class MainActivity extends Activity {
     public static final String EXTRA_OPEN_ADD_ALARM = "com.rbabbit.alarm.OPEN_ADD_ALARM";
+    public static final String EXTRA_OPEN_ALARM_ID = "com.rbabbit.alarm.OPEN_ALARM_ID";
     private static final int LOCATION_REQUEST = 71;
     private static final int NOTIFICATION_REQUEST = 72;
     private static final long MAX_TIMER_MINUTES = 30L * 24L * 60L;
@@ -104,8 +105,7 @@ public final class MainActivity extends Activity {
         QuickTimerScheduler.syncAll(this);
         exactAlarmAccess = AlarmScheduler.canScheduleExactAlarms(this);
         buildShell();
-        if (getIntent().getBooleanExtra(EXTRA_OPEN_ADD_ALARM, false)) showNewAlarmEditor();
-        else showAlarms();
+        openRequestedAlarm(getIntent());
         maybeRequestExactAlarmAccess(false);
         if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_REQUEST);
@@ -141,7 +141,26 @@ public final class MainActivity extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        if (intent.getBooleanExtra(EXTRA_OPEN_ADD_ALARM, false)) showNewAlarmEditor();
+        openRequestedAlarm(intent);
+    }
+
+    private void openRequestedAlarm(Intent intent) {
+        if (intent.getBooleanExtra(EXTRA_OPEN_ADD_ALARM, false)) {
+            showNewAlarmEditor();
+            return;
+        }
+        String alarmId = intent.getStringExtra(EXTRA_OPEN_ALARM_ID);
+        if (alarmId != null && !alarmId.isEmpty()) {
+            JSONArray alarms = AlarmStore.getAlarms(this);
+            for (int index = 0; index < alarms.length(); index += 1) {
+                JSONObject alarm = alarms.optJSONObject(index);
+                if (alarm != null && alarmId.equals(alarm.optString("id"))) {
+                    showEditAlarm(alarm);
+                    return;
+                }
+            }
+        }
+        showAlarms();
     }
 
     @Override

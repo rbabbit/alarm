@@ -20,6 +20,7 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
     private static final int OPEN_REQUEST = 4101;
     private static final int ADD_REQUEST = 4102;
     private static final int CLOCK_REQUEST = 4103;
+    private static final int EDIT_REQUEST = 4104;
     private static final String ACTION_REFRESH_CLOCK = "com.rbabbit.alarm.ACTION_REFRESH_WIDGET_CLOCK";
 
     @Override
@@ -67,10 +68,7 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_kala_time);
         String currentDate = new SimpleDateFormat("EEEE, d MMMM", Locale.getDefault())
                 .format(new Date());
-        String currentTime = new SimpleDateFormat("HH:mm", Locale.getDefault())
-                .format(new Date());
         views.setTextViewText(R.id.widget_current_date, currentDate);
-        views.setTextViewText(R.id.widget_current_time, currentTime);
 
         Intent serviceIntent = new Intent(context, KalaTimeWidgetService.class)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
@@ -83,6 +81,10 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
         PendingIntent openPendingIntent = PendingIntent.getActivity(
                 context, OPEN_REQUEST, openIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        PendingIntent editPendingIntent = PendingIntent.getActivity(
+                context, EDIT_REQUEST, openIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE);
+        views.setPendingIntentTemplate(R.id.widget_alarm_list, editPendingIntent);
         views.setOnClickPendingIntent(R.id.widget_root, openPendingIntent);
 
         Intent addIntent = new Intent(context, MainActivity.class)

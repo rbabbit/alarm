@@ -8,14 +8,6 @@
     android:background="@drawable/widget_background">
 
     <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Kala Time Alarm"
-        android:textColor="#111111"
-        android:textSize="16sp"
-        android:textStyle="bold" />
-
-    <TextView
         android:id="@+id/widget_current_date"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -24,12 +16,14 @@
         android:textColor="#666666"
         android:textSize="12sp" />
 
-    <TextView
+    <TextClock
         android:id="@+id/widget_current_time"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="4dp"
-        android:text="21:39"
+        android:format12Hour="HH:mm:ss"
+        android:format24Hour="HH:mm:ss"
+        android:text="21:39:00"
         android:textColor="#111111"
         android:textSize="28sp"
         android:textStyle="bold" />
@@ -67,27 +61,36 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
+        android:gravity="end"
         android:orientation="horizontal">
 
         <Button
             android:id="@+id/widget_add_alarm"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:minWidth="48dp"
+            android:minHeight="48dp"
             android:background="@drawable/widget_button"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
             android:text="+ Add alarm"
             android:textAllCaps="false"
-            android:textColor="#111111" />
+            android:textColor="#111111"
+            android:textSize="12sp" />
 
         <Button
             android:id="@+id/widget_open_alarms"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
             android:layout_marginStart="8dp"
-            android:layout_weight="1"
+            android:minWidth="48dp"
+            android:minHeight="48dp"
             android:background="@drawable/widget_button"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
             android:text="Open alarms"
             android:textAllCaps="false"
-            android:textColor="#111111" />
+            android:textColor="#111111"
+            android:textSize="12sp" />
     </LinearLayout>
 </LinearLayout>
