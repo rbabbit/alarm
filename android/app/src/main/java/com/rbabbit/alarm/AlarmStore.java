@@ -16,7 +16,6 @@ public final class AlarmStore {
     private static final String PREFS = "alarm_native_state";
     private static final String ALARMS = "alarms";
     private static final String HISTORY = "history";
-    private static final String ALARM_REVISION = "alarm_revision";
     private static final int MAX_HISTORY = 100;
 
     private AlarmStore() { }
@@ -43,16 +42,6 @@ public final class AlarmStore {
         return readArray(context, ALARMS);
     }
 
-    /** Monotonic revision used to invalidate launcher widget collections after changes. */
-    public static synchronized long getAlarmRevision(Context context) {
-        SharedPreferences preferences = prefs(context);
-        if (!preferences.contains(ALARM_REVISION)) {
-            preferences.edit().putLong(ALARM_REVISION, 1L).apply();
-            return 1L;
-        }
-        return preferences.getLong(ALARM_REVISION, 1L);
-    }
-
     public static synchronized JSONObject findAlarm(Context context, String alarmId) {
         JSONArray alarms = readArray(context, ALARMS);
         for (int index = 0; index < alarms.length(); index += 1) {
@@ -77,7 +66,8 @@ public final class AlarmStore {
             if (incomingHistory == null) incomingHistory = new JSONArray();
 
             JSONArray mergedHistory = mergeHistory(readArray(context, HISTORY), incomingHistory);
-            writeAlarms(context, alarms)
+            prefs(context).edit()
+                    .putString(ALARMS, alarms.toString())
                     .putString(HISTORY, mergedHistory.toString())
                     .apply();
         } catch (JSONException ignored) {
@@ -97,7 +87,7 @@ public final class AlarmStore {
                 }
             }
         }
-        writeAlarms(context, alarms).apply();
+        prefs(context).edit().putString(ALARMS, alarms.toString()).apply();
     }
 
     public static synchronized void upsert(Context context, JSONObject replacement) {
@@ -125,7 +115,7 @@ public final class AlarmStore {
                 return;
             }
         }
-        writeAlarms(context, alarms).apply();
+        prefs(context).edit().putString(ALARMS, alarms.toString()).apply();
     }
 
     public static synchronized JSONObject remove(Context context, String alarmId) {
@@ -141,7 +131,7 @@ public final class AlarmStore {
                 remaining.put(alarm);
             }
         }
-        if (removed != null) writeAlarms(context, remaining).apply();
+        if (removed != null) prefs(context).edit().putString(ALARMS, remaining.toString()).apply();
         return removed;
     }
 
@@ -170,14 +160,6 @@ public final class AlarmStore {
         } catch (JSONException ignored) {
             return new JSONArray();
         }
-    }
-
-    private static SharedPreferences.Editor writeAlarms(Context context, JSONArray alarms) {
-        SharedPreferences preferences = prefs(context);
-        long revision = preferences.getLong(ALARM_REVISION, 0L) + 1L;
-        return preferences.edit()
-                .putString(ALARMS, alarms.toString())
-                .putLong(ALARM_REVISION, revision);
     }
 
     private static JSONArray mergeHistory(JSONArray first, JSONArray second) {

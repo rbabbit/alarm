@@ -34,7 +34,6 @@ public final class AlarmScheduler {
                 scheduleNextBaseline(context, alarm, System.currentTimeMillis());
             }
         }
-        KalaTimeWidgetProvider.refresh(context);
     }
 
     public static void cancelKnownAlarms(Context context) {
@@ -61,12 +60,6 @@ public final class AlarmScheduler {
         long next = nextOccurrence(alarm, Math.max(afterMs, System.currentTimeMillis() - 1000));
         if (next > 0) scheduleAt(context, alarm, next, 0, "baseline");
         return next;
-    }
-
-    /** Returns the next occurrence without changing the system alarm schedule. */
-    public static long nextOccurrenceForWidget(JSONObject alarm, long afterMs) {
-        if (alarm == null || !alarm.optBoolean("enabled", false)) return -1;
-        return nextOccurrence(alarm, afterMs);
     }
 
     public static long scheduleSnooze(Context context, JSONObject alarm, int minutes, int nextIndex) {

@@ -33,14 +33,6 @@
         <receiver android:name=".AlarmActionReceiver" android:exported="false" />
         <receiver android:name=".QuickTimerReceiver" android:exported="false" />
         <receiver android:name=".QuickTimerActionReceiver" android:exported="false" />
-        <receiver android:name=".KalaTimeWidgetProvider" android:exported="true">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/kala_time_widget_info" />
-        </receiver>
         <receiver android:name=".BootReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
@@ -58,10 +50,6 @@
             android:name=".QuickTimerRingingService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
-        <service
-            android:name=".KalaTimeWidgetService"
-            android:exported="true"
-            android:permission="android.permission.BIND_REMOTEVIEWS" />
     </application>
 
 </manifest>
