@@ -72,7 +72,8 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
 
         Intent serviceIntent = new Intent(context, KalaTimeWidgetService.class)
                 .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
-                .setData(Uri.parse("kala-time-widget://alarms/" + widgetId));
+                .setData(Uri.parse("kala-time-widget://alarms/" + widgetId
+                        + "/" + AlarmStore.getAlarmRevision(context)));
         views.setRemoteAdapter(R.id.widget_alarm_list, serviceIntent);
         views.setEmptyView(R.id.widget_alarm_list, R.id.widget_alarm_empty);
 

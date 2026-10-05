@@ -22,7 +22,9 @@ public final class KalaTimeWidgetData {
         JSONArray alarms = AlarmStore.getAlarms(context);
         for (int index = 0; index < alarms.length(); index += 1) {
             JSONObject alarm = alarms.optJSONObject(index);
-            if (alarm == null || !alarm.optBoolean("enabled", false)) continue;
+            if (alarm == null || !alarm.optBoolean("enabled", false)) {
+                continue;
+            }
 
             long occurrence = AlarmScheduler.nextOccurrenceForWidget(alarm, now);
             if (occurrence <= now) continue;

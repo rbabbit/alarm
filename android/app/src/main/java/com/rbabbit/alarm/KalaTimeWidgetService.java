@@ -75,12 +75,13 @@ public final class KalaTimeWidgetService extends RemoteViewsService {
 
         @Override
         public long getItemId(int position) {
-            return position;
+            if (position < 0 || position >= rows.size()) return -1L;
+            return rows.get(position).alarmId.hashCode();
         }
 
         @Override
         public boolean hasStableIds() {
-            return false;
+            return true;
         }
 
         private void reload() {

@@ -1,48 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_alarm_row"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:minHeight="54dp"
-    android:gravity="center_vertical"
-    android:orientation="vertical"
+    android:layout_height="54dp"
     android:paddingStart="2dp"
-    android:paddingTop="6dp"
+    android:paddingTop="4dp"
     android:paddingEnd="2dp"
-    android:paddingBottom="6dp">
+    android:paddingBottom="4dp">
 
     <TextView
         android:id="@+id/widget_alarm_time"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_alignParentStart="true"
+        android:layout_centerVertical="true"
         android:text="06:00"
         android:textColor="#111111"
         android:textSize="20sp"
         android:textStyle="bold" />
 
-    <LinearLayout
+    <TextView
+        android:id="@+id/widget_alarm_date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentTop="true"
+        android:text="Mon, 5 Oct"
+        android:textColor="#666666"
+        android:textSize="11sp" />
+
+    <TextView
+        android:id="@+id/widget_alarm_name"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
-
-        <TextView
-            android:id="@+id/widget_alarm_date"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Mon, 5 Oct"
-            android:textColor="#666666"
-            android:textSize="11sp" />
-
-        <TextView
-            android:id="@+id/widget_alarm_name"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:layout_weight="1"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:text="New alarm"
-            android:textColor="#666666"
-            android:textSize="11sp" />
-    </LinearLayout>
-</LinearLayout>
+        android:layout_alignParentBottom="true"
+        android:layout_marginStart="8dp"
+        android:layout_toEndOf="@id/widget_alarm_time"
+        android:ellipsize="end"
+        android:gravity="end"
+        android:maxLines="1"
+        android:text="New alarm"
+        android:textColor="#666666"
+        android:textSize="11sp" />
+</RelativeLayout>
