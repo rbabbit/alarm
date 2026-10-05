@@ -37,7 +37,10 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.ToggleButton;
 
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -88,10 +91,7 @@ public final class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
-        // Let Android place the activity content below the status bar and above the
-        // navigation/gesture area. The previous edge-to-edge root padding caused
-        // the native toolbar and editor content to overlap the system status bar.
-        WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         getWindow().setStatusBarColor(Color.WHITE);
         getWindow().setNavigationBarColor(Color.WHITE);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
@@ -212,6 +212,13 @@ public final class MainActivity extends Activity {
         bottomNav = buildBottomNav();
         root.addView(bottomNav, new LinearLayout.LayoutParams(-1, dp(82)));
         setContentView(root);
+        ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
+            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
+            view.setPadding(0, bars.top, 0, Math.max(bars.bottom, ime.bottom));
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(root);
     }
 
     @Override
@@ -291,11 +298,10 @@ public final class MainActivity extends Activity {
     private void showAlarms() {
         currentPage = "alarms";
         Button add = headerButton("+");
-        add.setOnClickListener(view -> showEditAlarm(defaultAlarm()));
-        add.setContentDescription("Add alarm");
+        add.setOnClickListener(view -> addCalendarAlarm());
+        add.setContentDescription("Add calendar alarm");
         Button calendarAdd = calendarAddButton();
-        calendarAdd.setOnClickListener(view -> addCalendarAlarm());
-        calendarAdd.setContentDescription("Add calendar alarm");
+        calendarAdd.setOnClickListener(view -> showEditAlarm(defaultAlarm()));
         resetToolbar("Alarms", headerActions(add, calendarAdd));
         LinearLayout column = pageColumn();
         JSONArray alarms = AlarmStore.getAlarms(this);
