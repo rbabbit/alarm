@@ -7,6 +7,8 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
+import android.util.Log;
 import android.widget.RemoteViews;
 
 import org.json.JSONArray;
@@ -18,6 +20,7 @@ import java.util.Locale;
 
 /** Home-screen widget showing the next enabled Kala Time alarm. */
 public final class KalaTimeWidgetProvider extends AppWidgetProvider {
+    private static final String TAG = "KalaTimeWidget";
     private static final int OPEN_REQUEST = 4101;
     private static final int ADD_REQUEST = 4102;
     private static final int CLOCK_REQUEST = 4103;
@@ -49,6 +52,12 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
         for (int widgetId : widgetIds) updateWidget(context, manager, widgetId);
     }
 
+    @Override
+    public void onAppWidgetOptionsChanged(
+            Context context, AppWidgetManager manager, int widgetId, Bundle newOptions) {
+        updateWidget(context, manager, widgetId);
+    }
+
     /** Refreshes every placed widget after the native alarm schedule changes. */
     public static void refresh(Context context) {
         Context appContext = context.getApplicationContext();
@@ -64,7 +73,13 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
                 .format(new Date());
         String currentTime = new SimpleDateFormat("HH:mm", Locale.getDefault())
                 .format(new Date());
-        NextAlarm next = nextAlarm(context);
+        NextAlarm next;
+        try {
+            next = nextAlarm(context);
+        } catch (RuntimeException exception) {
+            Log.e(TAG, "Unable to calculate the next alarm for widget " + widgetId, exception);
+            next = new NextAlarm("", "--:--", "Open Kala Time to set an alarm");
+        }
         views.setTextViewText(R.id.widget_current_date, currentDate);
         views.setTextViewText(R.id.widget_current_time, currentTime);
         views.setTextViewText(R.id.widget_next_date, next.date);

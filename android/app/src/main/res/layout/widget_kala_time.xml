@@ -7,51 +7,32 @@
     android:padding="16dp"
     android:background="@drawable/widget_background">
 
-    <LinearLayout
+    <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:text="Kala Time Alarm"
+        android:textColor="#111111"
+        android:textSize="16sp"
+        android:textStyle="bold" />
 
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Kala Time Alarm"
-                android:textColor="#111111"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/widget_current_date"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Saturday, 4 October"
-                android:textColor="#666666"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/widget_current_time"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="21:39"
-            android:textColor="#111111"
-            android:textSize="28sp"
-            android:textStyle="bold" />
-    </LinearLayout>
-
-    <View
+    <TextView
+        android:id="@+id/widget_current_date"
         android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="12dp"
-        android:background="#DDDDDD" />
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="Saturday, 4 October"
+        android:textColor="#666666"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/widget_current_time"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="21:39"
+        android:textColor="#111111"
+        android:textSize="28sp"
+        android:textStyle="bold" />
 
     <TextView
         android:layout_width="match_parent"
@@ -61,52 +42,38 @@
         android:textColor="#666666"
         android:textSize="12sp" />
 
-    <LinearLayout
+    <TextView
+        android:id="@+id/widget_next_time"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:text="--:--"
+        android:textColor="#111111"
+        android:textSize="32sp"
+        android:textStyle="bold" />
 
-        <LinearLayout
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+    <TextView
+        android:id="@+id/widget_next_date"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="#666666"
+        android:textSize="12sp" />
 
-            <TextView
-                android:id="@+id/widget_next_time"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="--:--"
-                android:textColor="#111111"
-                android:textSize="32sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/widget_next_date"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text=""
-                android:textColor="#666666"
-                android:textSize="12sp" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/widget_next_name"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:gravity="end"
-            android:maxLines="2"
-            android:text="Set an alarm in Kala Time"
-            android:textColor="#666666"
-            android:textSize="13sp" />
-    </LinearLayout>
+    <TextView
+        android:id="@+id/widget_next_name"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:text="Set an alarm in Kala Time"
+        android:textColor="#666666"
+        android:textSize="13sp" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
+        android:layout_marginTop="12dp"
         android:orientation="horizontal">
 
         <Button
