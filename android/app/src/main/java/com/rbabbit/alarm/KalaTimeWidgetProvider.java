@@ -7,20 +7,16 @@ import android.appwidget.AppWidgetProvider;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.RemoteViews;
-
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-/** Home-screen widget showing the next enabled Kala Time alarm. */
+/** Home-screen widget showing the current time and all enabled Kala Time alarms. */
 public final class KalaTimeWidgetProvider extends AppWidgetProvider {
-    private static final String TAG = "KalaTimeWidget";
     private static final int OPEN_REQUEST = 4101;
     private static final int ADD_REQUEST = 4102;
     private static final int CLOCK_REQUEST = 4103;
@@ -73,18 +69,14 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
                 .format(new Date());
         String currentTime = new SimpleDateFormat("HH:mm", Locale.getDefault())
                 .format(new Date());
-        NextAlarm next;
-        try {
-            next = nextAlarm(context);
-        } catch (RuntimeException exception) {
-            Log.e(TAG, "Unable to calculate the next alarm for widget " + widgetId, exception);
-            next = new NextAlarm("", "--:--", "Open Kala Time to set an alarm");
-        }
         views.setTextViewText(R.id.widget_current_date, currentDate);
         views.setTextViewText(R.id.widget_current_time, currentTime);
-        views.setTextViewText(R.id.widget_next_date, next.date);
-        views.setTextViewText(R.id.widget_next_time, next.time);
-        views.setTextViewText(R.id.widget_next_name, next.name);
+
+        Intent serviceIntent = new Intent(context, KalaTimeWidgetService.class)
+                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
+                .setData(Uri.parse("kala-time-widget://alarms/" + widgetId));
+        views.setRemoteAdapter(R.id.widget_alarm_list, serviceIntent);
+        views.setEmptyView(R.id.widget_alarm_list, R.id.widget_alarm_empty);
 
         Intent openIntent = new Intent(context, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
@@ -102,29 +94,7 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
         views.setOnClickPendingIntent(R.id.widget_add_alarm, addPendingIntent);
         views.setOnClickPendingIntent(R.id.widget_open_alarms, openPendingIntent);
         manager.updateAppWidget(widgetId, views);
-    }
-
-    private static NextAlarm nextAlarm(Context context) {
-        long now = System.currentTimeMillis();
-        long bestAt = Long.MAX_VALUE;
-        String bestName = "No enabled alarms";
-        JSONArray alarms = AlarmStore.getAlarms(context);
-        for (int index = 0; index < alarms.length(); index += 1) {
-            JSONObject alarm = alarms.optJSONObject(index);
-            if (alarm == null || !alarm.optBoolean("enabled", false)) continue;
-            long occurrence = AlarmScheduler.nextOccurrenceForWidget(alarm, now);
-            if (occurrence > now && occurrence < bestAt) {
-                bestAt = occurrence;
-                bestName = alarm.optString("name", "Alarm");
-            }
-        }
-        if (bestAt == Long.MAX_VALUE) {
-            return new NextAlarm("", "--:--", "Set an alarm in Kala Time");
-        }
-        Date nextDate = new Date(bestAt);
-        String date = new SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(nextDate);
-        String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(nextDate);
-        return new NextAlarm(date, time, bestName);
+        manager.notifyAppWidgetViewDataChanged(widgetId, R.id.widget_alarm_list);
     }
 
     private static void scheduleClockRefresh(Context context) {
@@ -152,15 +122,4 @@ public final class KalaTimeWidgetProvider extends AppWidgetProvider {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
-    private static final class NextAlarm {
-        final String date;
-        final String time;
-        final String name;
-
-        NextAlarm(String date, String time, String name) {
-            this.date = date;
-            this.time = time;
-            this.name = name;
-        }
-    }
 }

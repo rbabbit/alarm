@@ -38,37 +38,30 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Next alarm"
+        android:text="Alarms"
         android:textColor="#666666"
         android:textSize="12sp" />
 
-    <TextView
-        android:id="@+id/widget_next_time"
+    <ListView
+        android:id="@+id/widget_alarm_list"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="--:--"
-        android:textColor="#111111"
-        android:textSize="32sp"
-        android:textStyle="bold" />
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:divider="#DDDDDD"
+        android:dividerHeight="1dp"
+        android:scrollbars="vertical"
+        android:stackFromBottom="false" />
 
     <TextView
-        android:id="@+id/widget_next_date"
+        android:id="@+id/widget_alarm_empty"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text=""
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center_vertical"
+        android:text="No enabled alarms"
         android:textColor="#666666"
-        android:textSize="12sp" />
-
-    <TextView
-        android:id="@+id/widget_next_name"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="2dp"
-        android:ellipsize="end"
-        android:maxLines="2"
-        android:text="Set an alarm in Kala Time"
-        android:textColor="#666666"
-        android:textSize="13sp" />
+        android:textSize="13sp"
+        android:visibility="gone" />
 
     <LinearLayout
         android:layout_width="match_parent"
