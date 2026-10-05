@@ -45,12 +45,13 @@
         android:layout_marginStart="8dp"
         android:layout_weight="0.56">
 
-        <StackView
+        <AdapterViewFlipper
             android:id="@+id/widget_alarm_cards"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:animateLayoutChanges="true"
-            android:clipToPadding="true"
+            android:animateFirstView="false"
+            android:autoStart="false"
+            android:loopViews="true"
             android:padding="2dp" />
 
         <TextView

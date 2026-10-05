@@ -63,6 +63,7 @@ public final class KalaTimeWidgetService extends RemoteViewsService {
             Intent fillInIntent = new Intent()
                     .putExtra(MainActivity.EXTRA_OPEN_ALARM_ID, alarm.alarmId);
             row.setOnClickFillInIntent(R.id.widget_alarm_row, fillInIntent);
+            row.setOnClickFillInIntent(R.id.widget_alarm_click_target, fillInIntent);
             return row;
         }
 
