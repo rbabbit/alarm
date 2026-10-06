@@ -18,6 +18,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.provider.Settings;
+import android.text.InputFilter;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
@@ -557,22 +558,31 @@ public final class MainActivity extends Activity {
     private void showTimers() {
         currentPage = "timers";
         reconcileExpiredTimers();
-        resetToolbar("Multi-Timer", null);
+        Button addAlarm = headerButton("+");
+        addAlarm.setContentDescription("Add alarm");
+        addAlarm.setOnClickListener(view -> showNewAlarmEditor());
+        resetToolbar("Multi-Timer", addAlarm);
         LinearLayout column = pageColumn();
         EditText name = edit("", "Timer Name");
         column.addView(name, fieldParams());
         LinearLayout controls = row();
         Spinner minutes = spinner(timerMinuteLabels());
-        EditText custom = edit("", "Custom minutes (1–43200)");
+        EditText custom = edit("", "Minutes");
         custom.setInputType(InputType.TYPE_CLASS_NUMBER);
+        custom.setFilters(new InputFilter[]{new InputFilter.LengthFilter(String.valueOf(MAX_TIMER_MINUTES).length())});
         custom.setVisibility(View.GONE);
         minutes.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
-            @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) { custom.setVisibility(position == 60 ? View.VISIBLE : View.GONE); }
+            @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                boolean customSelected = position == 60;
+                minutes.setVisibility(customSelected ? View.GONE : View.VISIBLE);
+                custom.setVisibility(customSelected ? View.VISIBLE : View.GONE);
+            }
             @Override public void onNothingSelected(android.widget.AdapterView<?> parent) { }
         });
-        FrameLayout durationControl = new FrameLayout(this);
-        durationControl.addView(minutes, new FrameLayout.LayoutParams(-1, dp(58)));
-        durationControl.addView(custom, new FrameLayout.LayoutParams(-1, dp(58)));
+        LinearLayout durationControl = new LinearLayout(this);
+        durationControl.setOrientation(LinearLayout.VERTICAL);
+        durationControl.addView(minutes, new LinearLayout.LayoutParams(-1, dp(58)));
+        durationControl.addView(custom, new LinearLayout.LayoutParams(-1, dp(58)));
         controls.addView(durationControl, new LinearLayout.LayoutParams(0, dp(58), 1));
         Button start = wideButton("Start timer");
         controls.addView(start, new LinearLayout.LayoutParams(0, dp(58), 1));
