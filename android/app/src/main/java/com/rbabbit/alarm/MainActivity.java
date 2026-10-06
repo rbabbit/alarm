@@ -587,11 +587,7 @@ public final class MainActivity extends Activity {
         column.addView(timerList, new LinearLayout.LayoutParams(-1, -2));
         refreshTimerList();
         ScrollView timerScroll = scroll(column);
-        add.setOnClickListener(view -> {
-            timerScroll.smoothScrollTo(0, 0);
-            name.requestFocus();
-        });
-        start.setOnClickListener(view -> {
+        Runnable createTimer = () -> {
             int selected = minutes.getSelectedItemPosition();
             int value;
             if (selected == 60) {
@@ -633,7 +629,9 @@ public final class MainActivity extends Activity {
                     showTimers();
                 }
             } catch (JSONException ignored) { }
-        });
+        };
+        add.setOnClickListener(view -> createTimer.run());
+        start.setOnClickListener(view -> createTimer.run());
         setPage("Multi-Timer", timerScroll, true);
     }
 
