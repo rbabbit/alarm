@@ -558,10 +558,6 @@ public final class MainActivity extends Activity {
     private void showTimers() {
         currentPage = "timers";
         reconcileExpiredTimers();
-        Button addAlarm = headerButton("+");
-        addAlarm.setContentDescription("Add alarm");
-        addAlarm.setOnClickListener(view -> showNewAlarmEditor());
-        resetToolbar("Multi-Timer", addAlarm);
         LinearLayout column = pageColumn();
         EditText name = edit("", "Timer Name");
         column.addView(name, fieldParams());
@@ -640,6 +636,13 @@ public final class MainActivity extends Activity {
             } catch (JSONException ignored) { }
         };
         start.setOnClickListener(view -> createTimer.run());
+        Button addTimer = headerButton("+");
+        addTimer.setContentDescription("Add timer");
+        addTimer.setOnClickListener(view -> {
+            timerScroll.smoothScrollTo(0, 0);
+            name.requestFocus();
+        });
+        resetToolbar("Multi-Timer", addTimer);
         setPage("Multi-Timer", timerScroll, true);
     }
 
