@@ -557,8 +557,7 @@ public final class MainActivity extends Activity {
     private void showTimers() {
         currentPage = "timers";
         reconcileExpiredTimers();
-        Button add = headerButton("+");
-        resetToolbar("Multi-Timer", add);
+        resetToolbar("Multi-Timer", null);
         LinearLayout column = pageColumn();
         EditText name = edit("", "Timer Name");
         column.addView(name, fieldParams());
@@ -630,7 +629,6 @@ public final class MainActivity extends Activity {
                 }
             } catch (JSONException ignored) { }
         };
-        add.setOnClickListener(view -> createTimer.run());
         start.setOnClickListener(view -> createTimer.run());
         setPage("Multi-Timer", timerScroll, true);
     }
