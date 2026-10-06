@@ -586,6 +586,11 @@ public final class MainActivity extends Activity {
         timerList.setOrientation(LinearLayout.VERTICAL);
         column.addView(timerList, new LinearLayout.LayoutParams(-1, -2));
         refreshTimerList();
+        ScrollView timerScroll = scroll(column);
+        add.setOnClickListener(view -> {
+            timerScroll.smoothScrollTo(0, 0);
+            name.requestFocus();
+        });
         start.setOnClickListener(view -> {
             int selected = minutes.getSelectedItemPosition();
             int value;
@@ -629,7 +634,7 @@ public final class MainActivity extends Activity {
                 }
             } catch (JSONException ignored) { }
         });
-        setPage("Multi-Timer", scroll(column), true);
+        setPage("Multi-Timer", timerScroll, true);
     }
 
     private void refreshTimerList() {
