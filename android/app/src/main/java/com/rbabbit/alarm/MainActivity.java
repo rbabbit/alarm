@@ -636,13 +636,7 @@ public final class MainActivity extends Activity {
             } catch (JSONException ignored) { }
         };
         start.setOnClickListener(view -> createTimer.run());
-        Button addTimer = headerButton("+");
-        addTimer.setContentDescription("Add timer");
-        addTimer.setOnClickListener(view -> {
-            timerScroll.smoothScrollTo(0, 0);
-            name.requestFocus();
-        });
-        resetToolbar("Multi-Timer", addTimer);
+        resetToolbar("Multi-Timer", null);
         setPage("Multi-Timer", timerScroll, true);
     }
 
