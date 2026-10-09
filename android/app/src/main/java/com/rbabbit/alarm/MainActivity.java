@@ -77,6 +77,7 @@ public final class MainActivity extends Activity {
     private FrameLayout content;
     private LinearLayout bottomNav;
     private TextView pageTitle;
+    private TextView trialBanner;
     private boolean editing;
     private JSONObject editingAlarm;
     private String currentPage = "alarms";
@@ -88,6 +89,10 @@ public final class MainActivity extends Activity {
     private LinearLayout timerList;
     private boolean exactAlarmAccess;
     private boolean exactAlarmPromptShowing;
+    private boolean trialExpired;
+    private boolean trialActive;
+    private boolean trialChecking;
+    private Intent pendingTrialIntent;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -100,22 +105,18 @@ public final class MainActivity extends Activity {
             getWindow().getDecorView().setSystemUiVisibility(
                     View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
         }
-        NotificationHelper.createChannel(this);
-        QuickTimerNotificationHelper.createChannel(this);
-        AlarmScheduler.syncAll(this);
-        QuickTimerScheduler.syncAll(this);
-        exactAlarmAccess = AlarmScheduler.canScheduleExactAlarms(this);
-        buildShell();
-        openRequestedAlarm(getIntent());
-        maybeRequestExactAlarmAccess(false);
-        if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_REQUEST);
-        }
+    NotificationHelper.createChannel(this);
+    QuickTimerNotificationHelper.createChannel(this);
+    exactAlarmAccess = AlarmScheduler.canScheduleExactAlarms(this);
+    buildShell();
+    beginTrialCheck(getIntent());
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+    if (trialChecking || !trialActive || trialExpired) return;
+    updateTrialStatus();
         boolean currentExactAlarmAccess = AlarmScheduler.canScheduleExactAlarms(this);
         if (currentExactAlarmAccess && !exactAlarmAccess) {
             AlarmScheduler.syncAll(this);
@@ -124,25 +125,107 @@ public final class MainActivity extends Activity {
         exactAlarmAccess = currentExactAlarmAccess;
         if (!editing && "timers".equals(currentPage)) showTimers();
         if (!editing && "alarms".equals(currentPage)) showAlarms();
-        if (ticker == null) {
-            ticker = new Runnable() {
-                @Override public void run() {
-                    if (!editing && "timers".equals(currentPage)) {
-                        reconcileExpiredTimers();
-                        refreshTimerList();
-                    }
-                    handler.postDelayed(this, 1000L);
-                }
-            };
-            handler.post(ticker);
-        }
+    ensureTicker();
     }
 
     @Override
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+    if (trialChecking) {
+        pendingTrialIntent = intent;
+    } else if (!trialActive) {
+        beginTrialCheck(intent);
+    } else if (trialExpired) {
+        showTrialExpired();
+    } else {
         openRequestedAlarm(intent);
+    }
+}
+
+private void beginTrialCheck(Intent intent) {
+    pendingTrialIntent = intent;
+    trialChecking = true;
+    trialActive = false;
+    if (trialBanner != null) trialBanner.setText("Checking trial...");
+    TrialManager.refresh(this, result -> {
+        trialChecking = false;
+        if (!result.active) {
+            showTrialExpired();
+            return;
+        }
+        trialActive = true;
+        trialExpired = false;
+        updateTrialStatus();
+        AlarmScheduler.syncAll(this);
+        QuickTimerScheduler.syncAll(this);
+        Intent requestIntent = pendingTrialIntent;
+        pendingTrialIntent = null;
+        if (requestIntent != null) openRequestedAlarm(requestIntent);
+        maybeRequestExactAlarmAccess(false);
+        if (android.os.Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_REQUEST);
+        }
+        ensureTicker();
+    });
+}
+
+private void ensureTicker() {
+    if (ticker != null) return;
+    ticker = new Runnable() {
+        @Override public void run() {
+            if (TrialManager.isExpired(MainActivity.this)) {
+                showTrialExpired();
+                return;
+            }
+            updateTrialStatus();
+            if (!editing && "timers".equals(currentPage)) {
+                reconcileExpiredTimers();
+                refreshTimerList();
+            }
+            handler.postDelayed(this, 1000L);
+        }
+    };
+    handler.post(ticker);
+}
+
+private void showTrialExpired() {
+        if (trialExpired) {
+            return;
+        }
+    trialExpired = true;
+    trialActive = false;
+    if (ticker != null) {
+        handler.removeCallbacks(ticker);
+        ticker = null;
+    }
+        editing = false;
+        currentPage = "trial";
+        pageTitle.setText("Trial ended");
+        if (trialBanner != null) {
+            trialBanner.setText("Trial ended");
+        }
+        bottomNav.setVisibility(View.GONE);
+        content.removeAllViews();
+
+        LinearLayout column = pageColumn();
+        column.setGravity(Gravity.CENTER);
+
+        TextView heading = text("Your 5-minute trial has ended.", 26, INK);
+        heading.setGravity(Gravity.CENTER);
+        column.addView(heading, new LinearLayout.LayoutParams(-1, -2));
+
+        TextView body = text(
+                "Payment is not connected in this test build. The full version will require a £0.50 payment.",
+                17,
+                MUTED);
+        body.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(-1, -2);
+        bodyParams.topMargin = dp(12);
+        column.addView(body, bodyParams);
+
+        content.addView(scroll(column), new FrameLayout.LayoutParams(-1, -1));
     }
 
     private void openRequestedAlarm(Intent intent) {
@@ -208,6 +291,13 @@ public final class MainActivity extends Activity {
         toolbar.addView(pageTitle, new LinearLayout.LayoutParams(0, dp(64), 1));
         root.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(88)));
 
+        trialBanner = text("Trial remaining  05:00", 18, INK);
+        trialBanner.setGravity(Gravity.CENTER);
+        trialBanner.setPadding(dp(20), 0, dp(20), 0);
+        trialBanner.setBackgroundColor(Color.rgb(238, 238, 238));
+        trialBanner.setContentDescription("Trial remaining countdown");
+        root.addView(trialBanner, new LinearLayout.LayoutParams(-1, dp(56)));
+
         content = new FrameLayout(this);
         root.addView(content, new LinearLayout.LayoutParams(-1, 0, 1));
         bottomNav = buildBottomNav();
@@ -220,6 +310,36 @@ public final class MainActivity extends Activity {
             return insets;
         });
         ViewCompat.requestApplyInsets(root);
+    }
+
+private void updateTrialStatus() {
+    if (trialBanner == null || trialExpired) {
+        return;
+    }
+    if (!trialActive) {
+        trialBanner.setText("Checking trial...");
+        return;
+    }
+        long remainingMs = TrialManager.remainingMs(this);
+        if (remainingMs <= 0L) {
+            showTrialExpired();
+            return;
+        }
+        long totalSeconds = (remainingMs + 999L) / 1000L;
+        long minutes = totalSeconds / 60L;
+        long seconds = totalSeconds % 60L;
+        trialBanner.setText(String.format(Locale.ROOT, "Trial remaining  %02d:%02d", minutes, seconds));
+    }
+
+private boolean requireActiveTrial() {
+    if (trialExpired || !trialActive) {
+        return false;
+        }
+        if (TrialManager.isExpired(this)) {
+            showTrialExpired();
+            return false;
+        }
+        return true;
     }
 
     @Override
@@ -299,10 +419,18 @@ public final class MainActivity extends Activity {
     private void showAlarms() {
         currentPage = "alarms";
         Button add = headerButton("+");
-        add.setOnClickListener(view -> addCalendarAlarm());
+        add.setOnClickListener(view -> {
+            if (requireActiveTrial()) {
+                addCalendarAlarm();
+            }
+        });
         add.setContentDescription("Add calendar alarm");
         Button calendarAdd = calendarAddButton();
-        calendarAdd.setOnClickListener(view -> showEditAlarm(defaultAlarm()));
+        calendarAdd.setOnClickListener(view -> {
+            if (requireActiveTrial()) {
+                showEditAlarm(defaultAlarm());
+            }
+        });
         resetToolbar("Alarms", headerActions(add, calendarAdd));
         LinearLayout column = pageColumn();
         JSONArray alarms = AlarmStore.getAlarms(this);
@@ -318,6 +446,9 @@ public final class MainActivity extends Activity {
     }
 
     private void showNewAlarmEditor() {
+        if (!requireActiveTrial()) {
+            return;
+        }
         showEditAlarm(defaultAlarm());
     }
 
@@ -397,6 +528,7 @@ public final class MainActivity extends Activity {
 
     private void showEditAlarm(JSONObject alarm) {
         try { editingAlarm = new JSONObject(alarm.toString()); } catch (JSONException error) { return; }
+        final boolean newAlarm = !containsStoredAlarm(editingAlarm.optString("id"));
         ensureRepeatDays(editingAlarm);
         currentPage = "alarms";
         LinearLayout toolbar = (LinearLayout) root.getChildAt(0);
@@ -499,6 +631,9 @@ public final class MainActivity extends Activity {
 
         Button save = wideButton("Save alarm");
         save.setOnClickListener(view -> {
+            if (newAlarm && !requireActiveTrial()) {
+                return;
+            }
             try {
                 editingAlarm.put("name", safeName(name.getText().toString(), "New alarm"));
                 boolean repeatMode = type.getCheckedRadioButtonId() == repeat.getId();
@@ -593,6 +728,9 @@ public final class MainActivity extends Activity {
         refreshTimerList();
         ScrollView timerScroll = scroll(column);
         Runnable createTimer = () -> {
+            if (!requireActiveTrial()) {
+                return;
+            }
             int selected = minutes.getSelectedItemPosition();
             int value;
             if (selected == 60) {
@@ -715,7 +853,11 @@ public final class MainActivity extends Activity {
     private void showCounter() {
         currentPage = "counter";
         Button add = headerButton("+");
-        add.setOnClickListener(view -> addCounter());
+        add.setOnClickListener(view -> {
+            if (requireActiveTrial()) {
+                addCounter();
+            }
+        });
         resetToolbar("Counter", add);
         LinearLayout column = pageColumn();
         JSONArray counters = CounterStore.get(this);
@@ -728,12 +870,21 @@ public final class MainActivity extends Activity {
     }
 
     private void addCounter() {
+        if (!requireActiveTrial()) {
+            return;
+        }
         EditText input = edit("", "Counter name");
         LinearLayout wrap = new LinearLayout(this);
         wrap.setPadding(dp(24), dp(10), dp(24), 0);
         wrap.addView(input, new LinearLayout.LayoutParams(-1, dp(58)));
         new android.app.AlertDialog.Builder(this).setTitle("New counter").setView(wrap)
-                .setPositiveButton("Add", (dialog, which) -> { CounterStore.add(this, input.getText().toString()); showCounter(); })
+                .setPositiveButton("Add", (dialog, which) -> {
+                    if (!requireActiveTrial()) {
+                        return;
+                    }
+                    CounterStore.add(this, input.getText().toString());
+                    showCounter();
+                })
                 .setNegativeButton("Cancel", null).show();
     }
 
@@ -1031,6 +1182,17 @@ public final class MainActivity extends Activity {
         return alarm;
     }
 
+    private boolean containsStoredAlarm(String id) {
+        JSONArray alarms = AlarmStore.getAlarms(this);
+        for (int index = 0; index < alarms.length(); index += 1) {
+            JSONObject item = alarms.optJSONObject(index);
+            if (item != null && id.equals(item.optString("id"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private void ensureRepeatDays(JSONObject alarm) {
         if (alarm == null || "once".equals(alarm.optString("frequency"))) return;
         JSONArray days = alarm.optJSONArray("repeatDays");
@@ -1052,12 +1214,21 @@ public final class MainActivity extends Activity {
     }
 
     private void addCalendarAlarm() {
+        if (!requireActiveTrial()) {
+            return;
+        }
         Calendar now = Calendar.getInstance();
         DatePickerDialog datePicker = new DatePickerDialog(this, (view, year, month, day) -> {
+            if (!requireActiveTrial()) {
+                return;
+            }
             Calendar selected = Calendar.getInstance();
             selected.set(year, month, day, now.get(Calendar.HOUR_OF_DAY), now.get(Calendar.MINUTE), 0);
             selected.set(Calendar.MILLISECOND, 0);
             new TimePickerDialog(this, (timeView, hour, minute) -> {
+                if (!requireActiveTrial()) {
+                    return;
+                }
                 selected.set(Calendar.HOUR_OF_DAY, hour);
                 selected.set(Calendar.MINUTE, minute);
                 long atMs = selected.getTimeInMillis();
